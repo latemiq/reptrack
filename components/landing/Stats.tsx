@@ -46,7 +46,7 @@ export function Stats() {
     <section ref={containerRef} className="px-6 md:px-16 lg:px-24 py-24 border-t border-[#1e1e1e]">
       <div className="max-w-5xl mx-auto">
         <div className="font-dm-mono text-[11px] text-[#555] uppercase tracking-widest mb-12">
-          Numbers don't lie
+          Numbers don&apos;t lie
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-[#1e1e1e]">
           {STATS.map((s, i) => (
