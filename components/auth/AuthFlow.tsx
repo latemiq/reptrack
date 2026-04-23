@@ -147,10 +147,9 @@ export default function AuthFlow() {
     setLoading(true)
     try {
       const res = await signUp.attemptEmailAddressVerification({ code: code.trim() })
-      if (res.status !== 'complete' || !res.createdSessionId) {
-        throw new Error('Nie udało się dokończyć rejestracji. Sprawdź wymagane pola i spróbuj ponownie.')
+      if (res.createdSessionId) {
+        setCreatedSessionId(res.createdSessionId)
       }
-      setCreatedSessionId(res.createdSessionId)
       go('profile')
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowy kod')
