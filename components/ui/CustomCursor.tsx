@@ -7,6 +7,9 @@ export function CustomCursor() {
   const ringRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (window.matchMedia('(pointer: coarse)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
     const dot = dotRef.current
     const ring = ringRef.current
     if (!dot || !ring) return
@@ -15,20 +18,29 @@ export function CustomCursor() {
     let mouseY = 0
     let ringX = 0
     let ringY = 0
+    let running = true
+    let visible = false
 
     const onMove = (e: MouseEvent) => {
       mouseX = e.clientX
       mouseY = e.clientY
+      if (!visible) {
+        visible = true
+        ringX = mouseX
+        ringY = mouseY
+        gsap.to([dot, ring], { opacity: 1, duration: 0.3 })
+      }
       gsap.to(dot, { x: mouseX, y: mouseY, duration: 0.1, ease: 'power2.out' })
     }
 
     const lerp = () => {
+      if (!running) return
       ringX += (mouseX - ringX) * 0.12
       ringY += (mouseY - ringY) * 0.12
       gsap.set(ring, { x: ringX, y: ringY })
       requestAnimationFrame(lerp)
     }
-    const rafId = requestAnimationFrame(lerp)
+    requestAnimationFrame(lerp)
 
     const onEnterLink = () => {
       gsap.to(ring, { scale: 1.6, borderColor: '#c8f53a', duration: 0.3, ease: 'expo.out' })
@@ -39,21 +51,28 @@ export function CustomCursor() {
       gsap.to(dot, { scale: 1, duration: 0.3 })
     }
 
+    const interactiveEls = Array.from(
+      document.querySelectorAll<Element>('a, button, [role="button"]')
+    )
+
     document.addEventListener('mousemove', onMove)
-    document.querySelectorAll('a, button, [role="button"]').forEach((el) => {
+    interactiveEls.forEach((el) => {
       el.addEventListener('mouseenter', onEnterLink)
       el.addEventListener('mouseleave', onLeaveLink)
     })
 
     return () => {
+      running = false
       document.removeEventListener('mousemove', onMove)
-      cancelAnimationFrame(rafId)
+      interactiveEls.forEach((el) => {
+        el.removeEventListener('mouseenter', onEnterLink)
+        el.removeEventListener('mouseleave', onLeaveLink)
+      })
     }
   }, [])
 
   return (
     <>
-      {/* Dot */}
       <div
         ref={dotRef}
         className="fixed top-0 left-0 z-[9999] pointer-events-none"
@@ -64,9 +83,9 @@ export function CustomCursor() {
           background: '#c8f53a',
           transform: 'translate(-50%, -50%)',
           willChange: 'transform',
+          opacity: 0,
         }}
       />
-      {/* Ring */}
       <div
         ref={ringRef}
         className="fixed top-0 left-0 z-[9998] pointer-events-none"
@@ -77,6 +96,7 @@ export function CustomCursor() {
           border: '1.5px solid rgba(200,245,58,0.4)',
           transform: 'translate(-50%, -50%)',
           willChange: 'transform',
+          opacity: 0,
         }}
       />
     </>
