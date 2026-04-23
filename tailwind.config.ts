@@ -25,9 +25,38 @@ const config: Config = {
         border: '#1e1e1e',
       },
       fontFamily: {
-        syne: ['Syne', 'sans-serif'],
-        mono: ['DM Mono', 'monospace'],
-        sans: ['DM Sans', 'sans-serif'],
+        display: ['var(--font-syne)', 'sans-serif'],
+        mono: ['var(--font-dm-mono)', 'monospace'],
+        sans: ['var(--font-dm-sans)', 'sans-serif'],
+      },
+      keyframes: {
+        gridMove: { to: { backgroundPosition: '48px 48px' } },
+        scan: {
+          '0%,100%': { top: '-2px', opacity: '0' },
+          '5%': { opacity: '1' },
+          '95%': { opacity: '1' },
+          '99%': { top: '100%', opacity: '0' },
+        },
+        float: {
+          '0%': { transform: 'translateY(0)', opacity: '0.3' },
+          '100%': { transform: 'translateY(-100vh)', opacity: '0' },
+        },
+        pulseRing: {
+          '0%': { transform: 'translate(-50%,-50%) scale(0.6)', opacity: '1' },
+          '100%': { transform: 'translate(-50%,-50%) scale(1.2)', opacity: '0' },
+        },
+        trackSlide: {
+          '0%': { transform: 'scaleX(0)', transformOrigin: 'left' },
+          '50%': { transform: 'scaleX(1)' },
+          '100%': { transform: 'scaleX(1)', opacity: '0' },
+        },
+      },
+      animation: {
+        gridMove: 'gridMove 8s linear infinite',
+        scan: 'scan 3s ease-in-out infinite',
+        float: 'float linear infinite',
+        pulseRing: 'pulseRing 2.5s ease-out infinite',
+        trackSlide: 'trackSlide 4s linear infinite',
       },
     },
   },
