@@ -1,7 +1,6 @@
 'use client'
 
 import { useSignUp, useSignIn } from '@clerk/nextjs'
-import { useRouter } from 'next/navigation'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useRef, useState, useCallback } from 'react'
@@ -77,7 +76,6 @@ const BG_MAP: Record<string, number> = {
 }
 
 export default function AuthFlow() {
-  const router = useRouter()
   const { signUp, setActive: setActiveUp, isLoaded: upLoaded } = useSignUp()
   const { signIn, setActive: setActiveIn, isLoaded: inLoaded } = useSignIn()
 
@@ -88,6 +86,7 @@ export default function AuthFlow() {
   const [code, setCode] = useState('')
   const [profile, setProfile] = useState<Profile>({ name:'', weight:78, height:178 })
   const [goals, setGoals] = useState<string[]>([])
+  const [createdSessionId, setCreatedSessionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -117,23 +116,26 @@ export default function AuthFlow() {
     gsap.from(cardRef.current,{opacity:0,y:24,duration:0.8,ease:'expo.out',delay:0.1})
   },[])
 
-  const handleRegEmail = async () => {
-    if (!signUp || !upLoaded) return
-    setLoading(true)
-    try {
-      await signUp.create({ emailAddress: email })
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
-      go('password')
-    } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Błąd')
-    } finally { setLoading(false) }
+  const handleRegEmail = () => {
+    const normalizedEmail = email.trim()
+    if (!normalizedEmail) {
+      setError('Wpisz adres email')
+      return
+    }
+
+    setCreatedSessionId(null)
+    setEmail(normalizedEmail)
+    go('password')
   }
 
   const handleRegPassword = async () => {
     if (!signUp || !upLoaded) return
     setLoading(true)
     try {
-      await signUp.update({ password })
+      const normalizedEmail = email.trim()
+      await signUp.create({ emailAddress: normalizedEmail, password })
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      setEmail(normalizedEmail)
       go('verify')
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Błąd')
@@ -144,7 +146,11 @@ export default function AuthFlow() {
     if (!signUp || !upLoaded) return
     setLoading(true)
     try {
-      await signUp.attemptEmailAddressVerification({ code })
+      const res = await signUp.attemptEmailAddressVerification({ code: code.trim() })
+      if (res.status !== 'complete' || !res.createdSessionId) {
+        throw new Error('Nie udało się dokończyć rejestracji. Sprawdź wymagane pola i spróbuj ponownie.')
+      }
+      setCreatedSessionId(res.createdSessionId)
       go('profile')
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowy kod')
@@ -159,15 +165,11 @@ export default function AuthFlow() {
     if (!signUp || !setActiveUp) return
     setLoading(true)
     try {
-      let sessionId = signUp.createdSessionId
-      if (!sessionId) {
-        const updated = await signUp.update({
-          firstName: profile.name || undefined,
-        })
-        sessionId = updated.createdSessionId
-      }
-      if (sessionId) await setActiveUp({ session: sessionId })
+      const sessionId = createdSessionId ?? signUp.createdSessionId
+      if (!sessionId) throw new Error('Nie udało się utworzyć sesji. Spróbuj się zalogować.')
+      await setActiveUp({ session: sessionId })
       go('success')
+      setTimeout(() => { window.location.href = '/dashboard' }, 1500)
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Błąd')
     } finally { setLoading(false) }
@@ -191,7 +193,7 @@ export default function AuthFlow() {
       const res = await signIn.attemptFirstFactor({ strategy:'password', password })
       if (res.status === 'complete') {
         await setActiveIn({ session: res.createdSessionId })
-        go('success')
+        window.location.href = '/dashboard'
       }
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowe hasło')
@@ -227,6 +229,9 @@ export default function AuthFlow() {
         <p className="text-[13px] text-neutral-600 mb-6">{mode==='register'?'Wyślemy kod weryfikacyjny.':'Wpisz email powiązany z kontem.'}</p>
         <ErrMsg msg={error}/>
         <Field label="Adres email" type="email" placeholder="mateusz@example.com" value={email} onChange={setEmail} autoFocus/>
+        {mode === 'register' && (
+          <div id="clerk-captcha" data-cl-theme="dark" data-cl-size="flexible" className="mb-4" />
+        )}
         <BtnPrimary loading={loading} onClick={mode==='register'?handleRegEmail:handleLogEmail}>Dalej →</BtnPrimary>
         <BtnBack onClick={()=>{setMode('choose');go('email')}}/>
       </>
@@ -245,6 +250,9 @@ export default function AuthFlow() {
             className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-sm text-[#f0ece4] placeholder:text-neutral-700 focus:outline-none focus:border-[#c8f53a]/40 transition-colors"/>
           {mode==='register'&&<PwStrength value={password}/>}
         </div>
+        {mode === 'register' && (
+          <div id="clerk-captcha" data-cl-theme="dark" data-cl-size="flexible" className="mb-4" />
+        )}
         <BtnPrimary loading={loading} onClick={mode==='register'?handleRegPassword:handleLogPassword}>{mode==='register'?'Dalej →':'Zaloguj →'}</BtnPrimary>
         <BtnBack onClick={()=>go('email')}/>
       </>
@@ -336,7 +344,7 @@ export default function AuthFlow() {
             ))}
           </div>
         )}
-        <BtnPrimary onClick={()=>router.push('/dashboard')}>Przejdź do aplikacji →</BtnPrimary>
+        <BtnPrimary onClick={()=>{ window.location.href = '/dashboard' }}>Przejdź do aplikacji →</BtnPrimary>
       </div>
     )
   }

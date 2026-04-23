@@ -1,3 +1,5 @@
+import { auth } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
 import AuthFlow from '@/components/auth/AuthFlow'
 
 export const metadata = {
@@ -5,6 +7,8 @@ export const metadata = {
   description: 'Zaloguj lub zarejestruj się w RepTrack',
 }
 
-export default function AuthPage() {
+export default async function AuthPage() {
+  const { userId } = await auth()
+  if (userId) redirect('/dashboard')
   return <AuthFlow />
 }
