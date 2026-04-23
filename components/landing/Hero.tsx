@@ -4,8 +4,6 @@ import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 import Link from 'next/link'
 
-gsap.registerPlugin()
-
 export function Hero() {
   const containerRef = useRef<HTMLDivElement>(null)
 

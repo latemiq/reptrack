@@ -69,7 +69,7 @@ export function PhoneFrame({ activePane = 0 }: PhoneFrameProps) {
       {/* App header */}
       <div className="px-5 pt-1 pb-3 border-b border-[#1e1e1e]">
         <div className="flex items-center justify-between">
-          <span className="font-syne font-800 text-[13px] text-[#f0ece4]">RepTrack</span>
+          <span className="font-syne font-extrabold text-[13px] text-[#f0ece4]">RepTrack</span>
           <span className="text-[10px] font-dm-mono text-[#c8f53a]">{pane.title}</span>
         </div>
       </div>
