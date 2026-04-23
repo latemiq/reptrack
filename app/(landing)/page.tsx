@@ -3,14 +3,11 @@ import { Marquee } from '@/components/landing/Marquee'
 import { PinnedFeatures } from '@/components/landing/PinnedFeatures'
 import { Stats } from '@/components/landing/Stats'
 import { CTA } from '@/components/landing/CTA'
-import { CustomCursor } from '@/components/ui/CustomCursor'
 import Link from 'next/link'
 
 export default function LandingPage() {
   return (
     <>
-      <CustomCursor />
-
       {/* Nav */}
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-16 py-5 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-[#1e1e1e]">
         <div className="font-syne font-extrabold text-[#f0ece4] text-lg tracking-tight">
