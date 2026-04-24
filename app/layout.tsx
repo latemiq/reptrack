@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Syne, DM_Sans, DM_Mono } from 'next/font/google'
+import { CustomCursor } from '@/components/ui/CustomCursor'
 import './globals.css'
 
 const syne = Syne({ subsets: ['latin'], variable: '--font-syne', weight: ['700', '800'] })
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider>
       <html lang="pl" className="dark">
         <body className={`${syne.variable} ${dmSans.variable} ${dmMono.variable} bg-[#0a0a0a] text-[#f0ece4] antialiased`}>
+          <CustomCursor />
           {children}
         </body>
       </html>

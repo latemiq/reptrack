@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignUp, useSignIn } from '@clerk/nextjs'
+import { useClerk, useSignUp, useSignIn } from '@clerk/nextjs'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useRef, useState, useCallback } from 'react'
@@ -76,6 +76,7 @@ const BG_MAP: Record<string, number> = {
 }
 
 export default function AuthFlow() {
+  const clerk = useClerk()
   const { signUp, setActive: setActiveUp, isLoaded: upLoaded } = useSignUp()
   const { signIn, setActive: setActiveIn, isLoaded: inLoaded } = useSignIn()
 
@@ -115,6 +116,10 @@ export default function AuthFlow() {
   useGSAP(() => {
     gsap.from(cardRef.current,{opacity:0,y:24,duration:0.8,ease:'expo.out',delay:0.1})
   },[])
+
+  const navigateToDashboard = () => {
+    void clerk.redirectWithAuth('/dashboard')
+  }
 
   const handleRegEmail = () => {
     const normalizedEmail = email.trim()
@@ -168,7 +173,7 @@ export default function AuthFlow() {
       if (!sessionId) throw new Error('Nie udało się utworzyć sesji. Spróbuj się zalogować.')
       await setActiveUp({ session: sessionId })
       go('success')
-      setTimeout(() => { window.location.href = '/dashboard' }, 1500)
+      setTimeout(navigateToDashboard, 1500)
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Błąd')
     } finally { setLoading(false) }
@@ -191,8 +196,12 @@ export default function AuthFlow() {
     try {
       const res = await signIn.attemptFirstFactor({ strategy:'password', password })
       if (res.status === 'complete') {
-        await setActiveIn({ session: res.createdSessionId })
-        window.location.href = '/dashboard'
+        await setActiveIn({
+          session: res.createdSessionId,
+          beforeEmit: async () => {
+            await clerk.redirectWithAuth('/dashboard')
+          },
+        })
       }
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowe hasło')
@@ -343,7 +352,7 @@ export default function AuthFlow() {
             ))}
           </div>
         )}
-        <BtnPrimary onClick={()=>{ window.location.href = '/dashboard' }}>Przejdź do aplikacji →</BtnPrimary>
+        <BtnPrimary onClick={navigateToDashboard}>Przejdź do aplikacji →</BtnPrimary>
       </div>
     )
   }

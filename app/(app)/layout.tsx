@@ -1,7 +1,6 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CustomCursor } from '@/components/ui/CustomCursor'
 
 const NAV_ITEMS = [
   {
@@ -55,9 +54,12 @@ const NAV_ITEMS = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
+  if (pathname.startsWith('/dashboard')) {
+    return <>{children}</>
+  }
+
   return (
     <div className="flex h-screen bg-[#0a0a0a] overflow-hidden">
-      <CustomCursor />
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-60 border-r border-[#1e1e1e] bg-[#0f0f0f] shrink-0">
