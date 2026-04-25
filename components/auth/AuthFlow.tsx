@@ -1,9 +1,10 @@
 'use client'
 
-import { useClerk, useSignUp, useSignIn } from '@clerk/nextjs'
+import { useSignUp, useSignIn } from '@clerk/nextjs'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 
 type Mode = 'choose' | 'login' | 'register'
 type Step = 'email' | 'password' | 'verify' | 'profile' | 'goals' | 'success'
@@ -76,7 +77,7 @@ const BG_MAP: Record<string, number> = {
 }
 
 export default function AuthFlow() {
-  const clerk = useClerk()
+  const router = useRouter()
   const { signUp, setActive: setActiveUp, isLoaded: upLoaded } = useSignUp()
   const { signIn, setActive: setActiveIn, isLoaded: inLoaded } = useSignIn()
 
@@ -118,7 +119,7 @@ export default function AuthFlow() {
   },[])
 
   const navigateToDashboard = () => {
-    void clerk.redirectWithAuth('/dashboard')
+    router.push('/dashboard')
   }
 
   const handleRegEmail = () => {
@@ -179,32 +180,27 @@ export default function AuthFlow() {
     } finally { setLoading(false) }
   }
 
-  const handleLogEmail = async () => {
-    if (!signIn || !inLoaded) return
-    setLoading(true)
-    try {
-      const res = await signIn.create({ identifier: email })
-      if (res.status === 'needs_first_factor') go('password')
-    } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Konto nie istnieje')
-    } finally { setLoading(false) }
+  const handleLogEmail = () => {
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) { setError('Wpisz adres email'); return }
+    if (!inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
+    setEmail(trimmedEmail)
+    go('password')
   }
 
   const handleLogPassword = async () => {
-    if (!signIn || !setActiveIn || !inLoaded) return
+    if (!signIn || !setActiveIn || !inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
     setLoading(true)
     try {
-      const res = await signIn.attemptFirstFactor({ strategy:'password', password })
+      const res = await signIn.create({ identifier: email, password })
       if (res.status === 'complete') {
-        await setActiveIn({
-          session: res.createdSessionId,
-          beforeEmit: async () => {
-            await clerk.redirectWithAuth('/dashboard')
-          },
-        })
+        await setActiveIn({ session: res.createdSessionId })
+        router.push('/dashboard')
+      } else {
+        setError('Nie można zakończyć logowania — spróbuj ponownie')
       }
     } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowe hasło')
+      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowe dane logowania')
     } finally { setLoading(false) }
   }
 

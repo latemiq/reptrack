@@ -50,6 +50,14 @@ const config: Config = {
           '50%': { transform: 'scaleX(1)' },
           '100%': { transform: 'scaleX(1)', opacity: '0' },
         },
+        typing: {
+          '0%, 60%, 100%': { opacity: '0.3', transform: 'translateY(0)' },
+          '30%': { opacity: '1', transform: 'translateY(-3px)' },
+        },
+        scanBg: {
+          '0%': { backgroundPosition: '0 -100%' },
+          '100%': { backgroundPosition: '0 200%' },
+        },
       },
       animation: {
         gridMove: 'gridMove 8s linear infinite',
@@ -57,6 +65,8 @@ const config: Config = {
         float: 'float linear infinite',
         pulseRing: 'pulseRing 2.5s ease-out infinite',
         trackSlide: 'trackSlide 4s linear infinite',
+        typing: 'typing 1.4s ease-in-out infinite',
+        scanBg: 'scanBg 3s linear infinite',
       },
     },
   },

@@ -3,6 +3,7 @@
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
 
 interface Run   { id: string; name: string; distance: number; pace: string; date: string }
@@ -104,10 +105,11 @@ function NavItem({
 }
 
 export default function Dashboard() {
-  const { user } = useUser()
+  const { isSignedIn, user } = useUser()
   const displayName = user?.firstName ?? user?.username ?? 'Użytkowniku'
-  const displayEmail = user?.primaryEmailAddress?.emailAddress ?? ''
+  const displayEmail = user?.primaryEmailAddress?.emailAddress ?? 'demo@reptrack.local'
 
+  const router = useRouter()
   const [activeNav, setActiveNav] = useState('dashboard')
   const mainRef    = useRef<HTMLDivElement>(null)
   const topbarRef  = useRef<HTMLDivElement>(null)
@@ -204,7 +206,7 @@ export default function Dashboard() {
         <p className="dash-nav-item px-5 pt-5 pb-2 text-[9px] font-mono text-[#2a2a2a] uppercase tracking-[2.5px]">Analiza</p>
 
         <div className="dash-nav-item">
-          <NavItem label="AI Coach" active={activeNav==='coach'} onClick={()=>handleNavClick('coach')}
+          <NavItem label="AI Coach" active={activeNav==='coach'} onClick={()=>router.push('/coach')}
             icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="#555" strokeWidth="1.5"/><path d="M3.5 13.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/></svg>}
           />
         </div>
@@ -226,9 +228,15 @@ export default function Dashboard() {
             />
           </div>
           <div className="flex items-center gap-2.5 px-3 py-2 mt-1">
-            <UserButton afterSignOutUrl="/auth" appearance={{
-              elements: { avatarBox: 'w-8 h-8 ring-1 ring-[#c8f53a]/20' }
-            }}/>
+            {isSignedIn ? (
+              <UserButton afterSignOutUrl="/auth" appearance={{
+                elements: { avatarBox: 'w-8 h-8 ring-1 ring-[#c8f53a]/20' }
+              }}/>
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center ring-1 ring-[#c8f53a]/20">
+                <span className="text-[#c8f53a] text-xs font-syne font-bold">D</span>
+              </div>
+            )}
             <div>
               <div className="text-[12px] font-medium text-[#bbb]">{displayName}</div>
               <div className="text-[10px] font-mono text-[#444]">{displayEmail}</div>

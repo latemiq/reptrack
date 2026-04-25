@@ -1,5 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
+const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
   '/gym(.*)',
@@ -8,7 +10,7 @@ const isProtectedRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
+  if (!AUTH_BYPASS && isProtectedRoute(req)) {
     await auth().protect()
   }
 })
