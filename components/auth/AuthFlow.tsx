@@ -192,12 +192,19 @@ export default function AuthFlow() {
     if (!signIn || !setActiveIn || !inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
     setLoading(true)
     try {
-      const res = await signIn.create({ identifier: email, password })
+      let res = await signIn.create({ identifier: email, password })
+
+      if (res.status === 'needs_first_factor') {
+        res = await signIn.attemptFirstFactor({ strategy: 'password', password })
+      }
+
       if (res.status === 'complete') {
         await setActiveIn({ session: res.createdSessionId })
         router.push('/dashboard')
+      } else if (res.status === 'needs_second_factor') {
+        setError('Wymagana weryfikacja dwuetapowa (2FA) — skonfiguruj ją w ustawieniach konta')
       } else {
-        setError('Nie można zakończyć logowania — spróbuj ponownie')
+        setError(`Nie można zakończyć logowania (status: ${res.status})`)
       }
     } catch (e: unknown) {
       setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowe dane logowania')
@@ -233,9 +240,6 @@ export default function AuthFlow() {
         <p className="text-[13px] text-neutral-600 mb-6">{mode==='register'?'Wyślemy kod weryfikacyjny.':'Wpisz email powiązany z kontem.'}</p>
         <ErrMsg msg={error}/>
         <Field label="Adres email" type="email" placeholder="mateusz@example.com" value={email} onChange={setEmail} autoFocus/>
-        {mode === 'register' && (
-          <div id="clerk-captcha" data-cl-theme="dark" data-cl-size="flexible" className="mb-4" />
-        )}
         <BtnPrimary loading={loading} onClick={mode==='register'?handleRegEmail:handleLogEmail}>Dalej →</BtnPrimary>
         <BtnBack onClick={()=>{setMode('choose');go('email')}}/>
       </>
