@@ -193,7 +193,7 @@ export default function Dashboard() {
           />
         </div>
         <div className="dash-nav-item">
-          <NavItem label="Siłownia" active={activeNav==='gym'} badge="+2.5" badgeOrange onClick={()=>handleNavClick('gym')}
+          <NavItem label="Siłownia" active={activeNav==='gym'} badge="+2.5" badgeOrange onClick={()=>router.push('/gym')}
             icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="4" y="6.5" width="8" height="3" rx="1.5" fill="none" stroke="#555" strokeWidth="1.5"/><rect x="1" y="6.5" width="3" height="3" rx="1" fill="none" stroke="#555" strokeWidth="1.5"/><rect x="12" y="6.5" width="3" height="3" rx="1" fill="none" stroke="#555" strokeWidth="1.5"/></svg>}
           />
         </div>

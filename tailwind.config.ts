@@ -58,6 +58,14 @@ const config: Config = {
           '0%': { backgroundPosition: '0 -100%' },
           '100%': { backgroundPosition: '0 200%' },
         },
+        liveSlide: {
+          '0%, 100%': { transform: 'translateX(-100%)' },
+          '50%':       { transform: 'translateX(100%)' },
+        },
+        livePulse: {
+          '0%, 100%': { opacity: '1', boxShadow: '0 0 0 0 rgba(245,160,58,0.4)' },
+          '50%':      { opacity: '0.7', boxShadow: '0 0 0 6px rgba(245,160,58,0)' },
+        },
       },
       animation: {
         gridMove: 'gridMove 8s linear infinite',
@@ -67,6 +75,8 @@ const config: Config = {
         trackSlide: 'trackSlide 4s linear infinite',
         typing: 'typing 1.4s ease-in-out infinite',
         scanBg: 'scanBg 3s linear infinite',
+        liveSlide: 'liveSlide 3s ease-in-out infinite',
+        livePulse: 'livePulse 1.5s ease-in-out infinite',
       },
     },
   },
