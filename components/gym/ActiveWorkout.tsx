@@ -273,7 +273,7 @@ export default function ActiveWorkout() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [elapsed, setElapsed] = useState(0)
 
-  const { activeWorkout, completeSet, updateSet, addSet, removeSet, finishWorkout, cancelWorkout } = useWorkoutStore()
+  const { activeWorkout, completeSet, updateSet, addSet, removeSet, finishWorkout, cancelWorkout, addExercise } = useWorkoutStore()
   const progress = useWorkoutStore(selectProgress)
   const tonnage  = useWorkoutStore(selectTotalTonnage)
 
@@ -284,6 +284,25 @@ export default function ActiveWorkout() {
     const i = setInterval(tick, 1000)
     return () => clearInterval(i)
   }, [activeWorkout])
+
+  // Odbiera ćwiczenie wybrane z atlasu (sessionStorage → dodaj do aktywnego treningu)
+  useEffect(() => {
+    const stored = sessionStorage.getItem('reptrack-selected-exercise')
+    if (!stored || !activeWorkout) return
+    try {
+      const exercise = JSON.parse(stored)
+      sessionStorage.removeItem('reptrack-selected-exercise')
+      addExercise({
+        id: crypto.randomUUID(),
+        exerciseId: exercise.id,
+        name: exercise.name,
+        targetSets: 3,
+        targetReps: 8,
+        targetWeight: null,
+        restSeconds: 120,
+      })
+    } catch { /* ignore */ }
+  }, [activeWorkout, addExercise])
 
   useGSAP(() => {
     if (!activeWorkout) return
@@ -404,7 +423,7 @@ export default function ActiveWorkout() {
               })}
 
               <button
-                onClick={() => router.push('/gym/exercises?selectFor=' + activeWorkout.id)}
+                onClick={() => router.push(`/gym/exercises?returnTo=/gym/log/${activeWorkout.id}`)}
                 className="w-full flex items-center justify-center gap-2 py-3.5 mt-2.5 rounded-xl bg-transparent border border-dashed border-[#1e1e1e] text-[#555] text-[11px] font-mono uppercase tracking-[1.5px] hover:border-[#f5a03a]/30 hover:text-[#f5a03a] hover:bg-[#f5a03a]/[0.02] hover:border-solid transition-all"
               >
                 + Dodaj ćwiczenie

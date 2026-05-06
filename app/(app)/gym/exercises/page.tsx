@@ -1,10 +1,15 @@
+import { Suspense } from 'react'
+import ExercisesAtlas from '@/components/gym/ExercisesAtlas'
+
+export const metadata = {
+  title: 'RepTrack — Atlas Ćwiczeń',
+  description: 'Baza 870+ ćwiczeń z opisami i obrazkami',
+}
+
 export default function ExercisesPage() {
   return (
-    <div className="flex items-center justify-center h-screen bg-[#080808] text-[#f0ece4]">
-      <div className="text-center">
-        <h1 className="font-display text-[28px] font-black mb-2">Baza ćwiczeń</h1>
-        <p className="text-[14px] text-[#666]">Wkrótce — ta strona jest w budowie.</p>
-      </div>
-    </div>
+    <Suspense fallback={<div className="bg-[#080808] min-h-screen" />}>
+      <ExercisesAtlas />
+    </Suspense>
   )
 }

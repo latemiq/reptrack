@@ -220,6 +220,11 @@ export default function Dashboard() {
             icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#555" strokeWidth="1.5"/><circle cx="8" cy="8" r="3" stroke="#555" strokeWidth="1.5"/><circle cx="8" cy="8" r="1" fill="#555"/></svg>}
           />
         </div>
+        <div className="dash-nav-item">
+          <NavItem label="Atlas ćwiczeń" active={activeNav==='exercises'} onClick={()=>router.push('/gym/exercises')}
+            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#555" strokeWidth="1.5"/><line x1="2" y1="6" x2="14" y2="6" stroke="#555" strokeWidth="1.5"/><circle cx="5" cy="9.5" r="0.8" fill="#555"/></svg>}
+          />
+        </div>
 
         <div className="mt-auto pt-4 border-t border-[#141414] px-2">
           <div className="dash-nav-item">
