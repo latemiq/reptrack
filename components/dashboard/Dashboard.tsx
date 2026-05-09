@@ -389,12 +389,13 @@ export default function Dashboard() {
 
           {/* AI COACH */}
           <div ref={aiRef}
-            className="bg-[#0f0f0f] border border-[#c8f53a]/15 rounded-2xl p-5 relative overflow-hidden">
+            onClick={() => router.push('/coach')}
+            className="bg-[#0f0f0f] border border-[#c8f53a]/15 rounded-2xl p-5 relative overflow-hidden cursor-none hover:border-[#c8f53a]/35 hover:bg-[#0f0f0f]/80 transition-colors group">
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#c8f53a]/40 to-transparent" />
             <div className="flex items-center gap-2.5 mb-4">
               <div className="w-2 h-2 rounded-full bg-[#c8f53a] animate-pulse" />
               <span className="text-[10px] font-mono text-[#c8f53a] uppercase tracking-[2px]">AI Coach · Analiza tygodniowa</span>
-              <span className="ml-auto text-[9px] font-mono text-[#333]">pt, 23.04</span>
+              <span className="ml-auto text-[9px] font-mono text-[#444] group-hover:text-[#c8f53a] transition-colors">Otwórz →</span>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
