@@ -1,9 +1,13 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 
+const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { userId } = await auth()
-  if (!userId) redirect('/auth')
+  if (!AUTH_BYPASS) {
+    const { userId } = await auth()
+    if (!userId) redirect('/auth')
+  }
 
   const { id } = await params
 
