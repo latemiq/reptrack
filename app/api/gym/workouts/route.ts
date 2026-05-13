@@ -8,20 +8,48 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 )
 
+interface IncomingSet {
+  weightKg: number | null
+  reps: number | null
+  rpe: number | null
+  done: boolean
+  completedAt?: number
+}
+
+interface IncomingExercise {
+  exerciseId: string
+  sets: IncomingSet[]
+}
+
+interface IncomingWorkout {
+  templateId?: string | null
+  name: string
+  notes?: string
+  startedAt: number
+  exercises: IncomingExercise[]
+}
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const workout = await req.json()
+  const workout = await req.json().catch(() => null) as IncomingWorkout | null
 
-  if (!workout.name || !Array.isArray(workout.exercises)) {
+  if (!workout?.name || !Array.isArray(workout.exercises)) {
     return NextResponse.json({ error: 'Invalid workout' }, { status: 400 })
   }
 
   const finishedAt = Date.now()
+  if (!Number.isFinite(workout.startedAt) || workout.startedAt > finishedAt) {
+    return NextResponse.json({ error: 'Invalid workout start time' }, { status: 400 })
+  }
+  if (workout.exercises.some(ex => !ex.exerciseId || !Array.isArray(ex.sets))) {
+    return NextResponse.json({ error: 'Invalid workout exercises' }, { status: 400 })
+  }
+
   const durationSeconds = Math.floor((finishedAt - workout.startedAt) / 1000)
 
-  const tonnage = workout.exercises.reduce((sum: number, ex: { sets: { done: boolean; weightKg: number | null; reps: number | null }[] }) =>
+  const tonnage = workout.exercises.reduce((sum, ex) =>
     sum + ex.sets.reduce((s, set) => {
       if (!set.done || !set.weightKg || !set.reps) return s
       return s + set.weightKg * set.reps
@@ -46,10 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Insert workout failed', details: workoutErr }, { status: 500 })
   }
 
-  const setsToInsert = workout.exercises.flatMap((
-    ex: { exerciseId: string; sets: { weightKg: number | null; reps: number | null; rpe: number | null; done: boolean; completedAt?: number }[] },
-    exPos: number
-  ) =>
+  const setsToInsert = workout.exercises.flatMap((ex, exPos) =>
     ex.sets
       .filter(s => s.done)
       .map((s, idx) => ({

@@ -362,7 +362,7 @@ export default function CoachChat() {
   }
 
   const handleWorkoutRefClick = (ref: WorkoutRef) => {
-    if (ref.type === 'gym') router.push(`/gym/history/${ref.id}`)
+    if (ref.type === 'gym') router.push('/gym/history')
     else router.push(`/running/${ref.id}`)
   }
 

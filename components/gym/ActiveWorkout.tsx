@@ -272,6 +272,8 @@ export default function ActiveWorkout() {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
   const [elapsed, setElapsed] = useState(0)
+  const [isFinishing, setIsFinishing] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const { activeWorkout, completeSet, updateSet, addSet, removeSet, finishWorkout, cancelWorkout, addExercise } = useWorkoutStore()
   const progress = useWorkoutStore(selectProgress)
@@ -335,20 +337,27 @@ export default function ActiveWorkout() {
   const completedSets = activeWorkout.exercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.done).length, 0)
 
   const handleFinish = async () => {
-    const final = finishWorkout()
-    if (!final) return
+    if (!activeWorkout || isFinishing) return
 
+    setIsFinishing(true)
+    setSaveError('')
     try {
-      await fetch('/api/gym/workouts', {
+      const res = await fetch('/api/gym/workouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(final),
+        body: JSON.stringify(activeWorkout),
       })
-    } catch {
-      // zapisz lokalnie jeśli offline
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? `Zapis nie powiódł się (${res.status})`)
+      }
+      finishWorkout()
+      router.push('/gym/history')
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Nie udało się zapisać treningu')
+    } finally {
+      setIsFinishing(false)
     }
-
-    router.push('/gym/history')
   }
 
   const handleCancel = () => {
@@ -380,13 +389,19 @@ export default function ActiveWorkout() {
             <button onClick={handleCancel} className="px-4 py-2 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#333] hover:text-[#ccc] transition-all">
               Anuluj
             </button>
-            <button onClick={handleFinish} className="px-4 py-2 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px transition-all">
-              Zakończ trening
+            <button onClick={handleFinish} disabled={isFinishing} className="px-4 py-2 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px transition-all disabled:opacity-50 disabled:hover:translate-y-0">
+              {isFinishing ? 'Zapisuję...' : 'Zakończ trening'}
             </button>
           </div>
         </div>
 
         <div className="px-7 pt-3 pb-7">
+          {saveError && (
+            <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">
+              {saveError}. Trening nadal jest zapisany lokalnie.
+            </div>
+          )}
+
           <div className="grid grid-cols-[1fr_320px] gap-3.5">
 
             {/* WORKOUT AREA */}

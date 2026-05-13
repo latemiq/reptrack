@@ -7,7 +7,7 @@ interface ProgressBarProps {
 }
 
 export function ProgressBar({ value, max, label, accent = 'lime', showPercent }: ProgressBarProps) {
-  const pct = Math.min(100, Math.round((value / max) * 100))
+  const pct = max > 0 ? Math.min(100, Math.max(0, Math.round((value / max) * 100))) : 0
   const color = accent === 'lime' ? '#c8f53a' : '#f5a03a'
 
   return (

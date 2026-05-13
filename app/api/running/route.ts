@@ -8,12 +8,29 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 )
 
+const toPositiveNumber = (value: unknown) => {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+const toNullableNumber = (value: unknown) => {
+  if (value == null || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+const toNullableInt = (value: unknown) => {
+  const n = toNullableNumber(value)
+  return n == null ? null : Math.round(n)
+}
+
 export async function GET(req: NextRequest) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const limit = Number(searchParams.get('limit') ?? '50')
+  const requestedLimit = Number(searchParams.get('limit') ?? '50')
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 100) : 50
   const range = searchParams.get('range') ?? '30d'
 
   const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365
@@ -39,31 +56,59 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Nieprawidłowy JSON' }, { status: 400 })
+  }
 
-  if (!body.distance_km || !body.duration_seconds) {
+  const distanceKm = toPositiveNumber((body as { distance_km?: unknown }).distance_km)
+  const durationSeconds = toPositiveNumber((body as { duration_seconds?: unknown }).duration_seconds)
+
+  if (distanceKm == null || durationSeconds == null) {
     return NextResponse.json({ error: 'Brak wymaganych pól (distance_km, duration_seconds)' }, { status: 400 })
   }
 
-  const ranAt = body.date
-    ? new Date(body.date).toISOString()
-    : new Date().toISOString()
+  const rawDate = (body as { date?: unknown }).date
+  const parsedDate = typeof rawDate === 'string' && rawDate.trim()
+    ? new Date(rawDate)
+    : new Date()
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return NextResponse.json({ error: 'Nieprawidłowa data biegu' }, { status: 400 })
+  }
+
+  const ranAt = parsedDate.toISOString()
+  const source = typeof (body as { source?: unknown }).source === 'string'
+    ? (body as { source: string }).source
+    : 'manual'
+  const name = typeof (body as { name?: unknown }).name === 'string' && (body as { name: string }).name.trim()
+    ? (body as { name: string }).name.trim()
+    : `Bieg ${new Date(ranAt).toLocaleDateString('pl-PL')}`
+  const type = typeof (body as { type?: unknown }).type === 'string'
+    ? (body as { type: string }).type
+    : 'easy'
+  const location = typeof (body as { location?: unknown }).location === 'string'
+    ? (body as { location: string }).location
+    : null
+
+  const avgPace = toNullableInt((body as { avg_pace_seconds_per_km?: unknown }).avg_pace_seconds_per_km)
+    ?? (distanceKm > 0 ? Math.round(durationSeconds / distanceKm) : null)
 
   const { data, error } = await supabase
     .from('runs')
     .insert({
       user_id: userId,
-      name: body.name ?? `Bieg ${new Date(ranAt).toLocaleDateString('pl-PL')}`,
-      distance_km: body.distance_km,
-      duration_seconds: body.duration_seconds,
-      avg_pace_seconds_per_km: body.avg_pace_seconds_per_km,
-      avg_hr: body.avg_hr,
-      max_hr: body.max_hr,
-      elevation_gain_m: body.elevation_gain_m,
-      calories: body.calories,
-      location: body.location,
-      type: body.type ?? 'easy',
-      source: body.source ?? 'manual',
+      name,
+      distance_km: distanceKm,
+      duration_seconds: Math.round(durationSeconds),
+      avg_pace_seconds_per_km: avgPace,
+      avg_hr: toNullableInt((body as { avg_hr?: unknown }).avg_hr),
+      max_hr: toNullableInt((body as { max_hr?: unknown }).max_hr),
+      elevation_gain_m: toNullableNumber((body as { elevation_gain_m?: unknown }).elevation_gain_m),
+      calories: toNullableInt((body as { calories?: unknown }).calories),
+      location,
+      type,
+      source,
       ran_at: ranAt,
     })
     .select('id')

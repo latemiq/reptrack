@@ -20,7 +20,13 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth()
   if (!userId) return new NextResponse('Unauthorized', { status: 401 })
 
-  const { title, category } = await req.json()
+  const body = await req.json().catch(() => null)
+  const title = typeof body?.title === 'string' ? body.title.trim() : ''
+  const category = typeof body?.category === 'string' ? body.category : 'general'
+
+  if (!title) {
+    return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+  }
 
   // TODO: save to Supabase
   // const { data } = await supabase

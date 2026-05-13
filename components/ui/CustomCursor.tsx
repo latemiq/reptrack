@@ -20,6 +20,7 @@ export function CustomCursor() {
     let ringY = 0
     let running = true
     let visible = false
+    let hoveringInteractive = false
 
     const onMove = (e: MouseEvent) => {
       mouseX = e.clientX
@@ -50,24 +51,33 @@ export function CustomCursor() {
       gsap.to(ring, { scale: 1, borderColor: 'rgba(200,245,58,0.4)', duration: 0.3, ease: 'expo.out' })
       gsap.to(dot, { scale: 1, duration: 0.3 })
     }
+    const isInteractive = (target: EventTarget | null) =>
+      target instanceof Element && target.closest('a, button, [role="button"]')
 
-    const interactiveEls = Array.from(
-      document.querySelectorAll<Element>('a, button, [role="button"]')
-    )
+    const onPointerOver = (e: MouseEvent) => {
+      if (isInteractive(e.target)) {
+        if (hoveringInteractive) return
+        hoveringInteractive = true
+        onEnterLink()
+      }
+    }
+
+    const onPointerOut = (e: MouseEvent) => {
+      if (!hoveringInteractive) return
+      if (isInteractive(e.relatedTarget)) return
+      hoveringInteractive = false
+      onLeaveLink()
+    }
 
     document.addEventListener('mousemove', onMove)
-    interactiveEls.forEach((el) => {
-      el.addEventListener('mouseenter', onEnterLink)
-      el.addEventListener('mouseleave', onLeaveLink)
-    })
+    document.addEventListener('mouseover', onPointerOver)
+    document.addEventListener('mouseout', onPointerOut)
 
     return () => {
       running = false
       document.removeEventListener('mousemove', onMove)
-      interactiveEls.forEach((el) => {
-        el.removeEventListener('mouseenter', onEnterLink)
-        el.removeEventListener('mouseleave', onLeaveLink)
-      })
+      document.removeEventListener('mouseover', onPointerOver)
+      document.removeEventListener('mouseout', onPointerOut)
     }
   }, [])
 

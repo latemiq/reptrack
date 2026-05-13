@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const { conversationId, message, context } = await req.json()
+    const trimmedMessage = typeof message === 'string' ? message.trim() : ''
 
-    if (typeof message !== 'string' || message.length > 4000) {
+    if (!trimmedMessage || trimmedMessage.length > 4000) {
       return new Response('Invalid message', { status: 400 })
     }
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       system: SYSTEM_PROMPT,
       messages: [
         ...history,
-        { role: 'user', content: message },
+        { role: 'user', content: trimmedMessage },
       ],
     })
 

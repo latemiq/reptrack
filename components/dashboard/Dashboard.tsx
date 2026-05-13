@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
+import GoalsView from '@/components/goals/GoalsView'
 
 interface Run   { id: string; name: string; distance: number; pace: string; date: string }
 interface Lift  { id: string; name: string; exercises: number; duration: string; date: string }
@@ -74,22 +75,27 @@ function WeekStrip() {
 }
 
 function NavItem({
-  label, active, badge, badgeOrange, icon, onClick,
+  label, active, badge, badgeOrange, icon, onClick, tone = 'lime',
 }: {
   label: string; active?: boolean; badge?: string; badgeOrange?: boolean
-  icon: React.ReactNode; onClick: () => void
+  icon: React.ReactNode; onClick: () => void; tone?: 'lime' | 'purple'
 }) {
+  const activeClasses = tone === 'purple'
+    ? 'bg-[#c88cff]/[0.08] border border-[#c88cff]/20'
+    : 'bg-[#c8f53a]/[0.08] border border-[#c8f53a]/20'
+  const iconActiveClass = tone === 'purple' ? 'bg-[#c88cff]/15' : 'bg-[#c8f53a]/15'
+
   return (
     <button onClick={onClick} className={`
       w-full flex items-center gap-2.5 px-3 py-2.5 mx-2 rounded-xl text-left
       transition-all duration-200 group
       ${active
-        ? 'bg-[#c8f53a]/[0.08] border border-[#c8f53a]/20'
+        ? activeClasses
         : 'border border-transparent hover:bg-white/[0.03]'
       }
     `} style={{ width: 'calc(100% - 16px)' }}>
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all
-        ${active ? 'bg-[#c8f53a]/15' : 'group-hover:scale-105'}`}>
+        ${active ? iconActiveClass : 'group-hover:scale-105'}`}>
         {icon}
       </div>
       <span className={`text-[13px] transition-colors ${active ? 'text-[#f0ece4] font-medium' : 'text-[#777] group-hover:text-[#bbb]'}`}>
@@ -198,7 +204,7 @@ export default function Dashboard() {
           />
         </div>
         <div className="dash-nav-item">
-          <NavItem label="Import" active={activeNav==='import'} onClick={()=>handleNavClick('import')}
+          <NavItem label="Import" active={activeNav==='import'} onClick={()=>router.push('/running/import')}
             icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 10V4M5 7l3-3 3 3" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12h12" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/></svg>}
           />
         </div>
@@ -216,8 +222,8 @@ export default function Dashboard() {
           />
         </div>
         <div className="dash-nav-item">
-          <NavItem label="Cele" active={activeNav==='goals'} onClick={()=>handleNavClick('goals')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#555" strokeWidth="1.5"/><circle cx="8" cy="8" r="3" stroke="#555" strokeWidth="1.5"/><circle cx="8" cy="8" r="1" fill="#555"/></svg>}
+          <NavItem label="Cele" active={activeNav==='goals'} tone="purple" onClick={()=>handleNavClick('goals')}
+            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke={activeNav==='goals'?'#c88cff':'#555'} strokeWidth="1.5"/><circle cx="8" cy="8" r="3" stroke={activeNav==='goals'?'#c88cff':'#555'} strokeWidth="1.5"/><circle cx="8" cy="8" r="1" fill={activeNav==='goals'?'#c88cff':'#555'}/></svg>}
           />
         </div>
         <div className="dash-nav-item">
@@ -252,7 +258,9 @@ export default function Dashboard() {
 
       {/* MAIN */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-[#080808]">
+        {activeNav === 'goals' && <GoalsView />}
 
+        <div className={activeNav === 'goals' ? 'hidden' : ''}>
         {/* TOP BAR */}
         <div ref={topbarRef} className="flex justify-between items-center px-7 pt-6 mb-6">
           <div>
@@ -411,6 +419,7 @@ export default function Dashboard() {
             </div>
           </div>
 
+        </div>
         </div>
       </main>
     </div>

@@ -4,6 +4,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface ParsedRun {
 }
 
 type Stage = 'upload' | 'parsing' | 'review' | 'saving' | 'done' | 'error'
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
@@ -71,8 +73,8 @@ export default function ImportScreenshot() {
 
   // ── FILE HANDLERS ─────────────────────────────────────────────────────────
   const handleFile = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Wybierz plik graficzny (JPG, PNG, WebP)')
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setError('Wybierz plik graficzny (JPG, PNG, WebP lub GIF)')
       return
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -175,6 +177,12 @@ export default function ImportScreenshot() {
     setParsed(null)
   }
 
+  const canSave = parsed != null
+    && parsed.distance_km != null
+    && parsed.distance_km > 0
+    && parsed.duration_seconds != null
+    && parsed.duration_seconds > 0
+
   // ─── RENDER ───────────────────────────────────────────────────────────────
 
   return (
@@ -208,7 +216,7 @@ export default function ImportScreenshot() {
                     : 'border-[#1e1e1e] hover:border-[#f5a03a]/40 hover:bg-[#f5a03a]/[0.02]'
                 }`}
               >
-                <input ref={fileInputRef} type="file" accept="image/*" hidden
+                <input ref={fileInputRef} type="file" accept={ALLOWED_IMAGE_TYPES.join(',')} hidden
                   onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
                 <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-all ${
@@ -262,7 +270,7 @@ export default function ImportScreenshot() {
               <div className="grid grid-cols-[200px_1fr] gap-4 bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5">
                 {imageUrl && (
                   <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
-                    <img src={imageUrl} alt="Screenshot" className="w-full h-full object-cover" />
+                    <Image src={imageUrl} alt="Screenshot" fill sizes="200px" unoptimized className="object-cover" />
                     <div className="absolute inset-0 pointer-events-none">
                       <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#f5a03a] to-transparent animate-[importScan_2s_ease-in-out_infinite]" />
                     </div>
@@ -308,8 +316,8 @@ export default function ImportScreenshot() {
 
               <div className="grid grid-cols-[180px_1fr] gap-4">
                 {imageUrl && (
-                  <div className="aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
-                    <img src={imageUrl} alt="Screenshot" className="w-full h-full object-cover" />
+                  <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
+                    <Image src={imageUrl} alt="Screenshot" fill sizes="180px" unoptimized className="object-cover" />
                   </div>
                 )}
 
@@ -350,8 +358,8 @@ export default function ImportScreenshot() {
                       className="flex-1 py-2.5 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#333] hover:text-[#ccc] transition-all cursor-none">
                       Inny screenshot
                     </button>
-                    <button onClick={handleSave}
-                      className="flex-[2] py-2.5 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none">
+                    <button onClick={handleSave} disabled={!canSave}
+                      className="flex-[2] py-2.5 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none disabled:opacity-40 disabled:hover:translate-y-0">
                       Zapisz bieg →
                     </button>
                   </div>
