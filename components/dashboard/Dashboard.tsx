@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
 import GoalsView from '@/components/goals/GoalsView'
+import Profile from '@/components/profile/Profile'
 
 interface Run   { id: string; name: string; distance: number; pace: string; date: string }
 interface Lift  { id: string; name: string; exercises: number; duration: string; date: string }
@@ -174,6 +175,8 @@ export default function Dashboard() {
     }
   }
 
+  const isStandaloneView = activeNav === 'goals' || activeNav === 'profile'
+
   return (
     <div ref={mainRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
 
@@ -259,8 +262,9 @@ export default function Dashboard() {
       {/* MAIN */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-[#080808]">
         {activeNav === 'goals' && <GoalsView />}
+        {activeNav === 'profile' && <Profile />}
 
-        <div className={activeNav === 'goals' ? 'hidden' : ''}>
+        <div className={isStandaloneView ? 'hidden' : ''}>
         {/* TOP BAR */}
         <div ref={topbarRef} className="flex justify-between items-center px-7 pt-6 mb-6">
           <div>
