@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useNotificationsStore, selectUnreadCount } from '@/lib/stores/useNotificationsStore'
 
 const NAV_ITEMS = [
   {
@@ -49,10 +50,21 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: '/notifications',
+    label: 'Powiadomienia',
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+        <path d="M10 2a6 6 0 0 0-6 6v3l-1.5 2.5h15L16 11V8a6 6 0 0 0-6-6Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M8.5 16.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const unreadCount = useNotificationsStore(selectUnreadCount)
 
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/coach')) {
     return <>{children}</>
@@ -79,8 +91,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     ? 'bg-[#141414] text-[#c8f53a]'
                     : 'text-[#555] hover:text-[#f0ece4] hover:bg-[#141414]'
                 }`}>
-                <span className={active ? 'text-[#c8f53a]' : 'text-[#333]'}>
+                <span className={`relative ${active ? 'text-[#c8f53a]' : 'text-[#333]'}`}>
                   {item.icon}
+                  {item.href === '/notifications' && unreadCount > 0 ? (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-[8px] font-bold text-white flex items-center justify-center leading-none">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  ) : null}
                 </span>
                 {item.label}
                 {active && (
@@ -132,7 +149,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
                 active ? 'text-[#c8f53a]' : 'text-[#333]'
               }`}>
-              {item.icon}
+              <span className="relative">
+                {item.icon}
+                {item.href === '/notifications' && unreadCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-[8px] font-bold text-white flex items-center justify-center leading-none">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                ) : null}
+              </span>
               <span className="font-dm-mono text-[9px] uppercase tracking-wider">
                 {item.label}
               </span>
