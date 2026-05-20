@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
+import MobileBottomNav from '@/components/layout/MobileBottomNav'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -370,8 +371,10 @@ export default function CoachChat() {
   return (
     <div ref={containerRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
 
+      <MobileBottomNav />
+
       {/* ── SIDEBAR ── */}
-      <aside className="w-[240px] flex-shrink-0 bg-[#0a0a0a] border-r border-[#161616] flex flex-col py-3.5">
+      <aside className="hidden md:flex w-[240px] flex-shrink-0 bg-[#0a0a0a] border-r border-[#161616] flex-col py-3.5">
         <div className="px-3 pb-2.5 border-b border-[#141414] flex justify-between items-center mb-1.5">
           <div className="font-display text-[13px] font-black text-[#f0ece4]">Konsultacje</div>
           <button
@@ -443,7 +446,7 @@ export default function CoachChat() {
       </aside>
 
       {/* ── MAIN CHAT ── */}
-      <main className="flex-1 flex flex-col bg-[#080808] relative">
+      <main className="flex-1 flex flex-col bg-[#080808] relative pb-[62px] md:pb-0">
         {/* Scan overlay */}
         <div
           ref={scanFxRef}
@@ -453,7 +456,7 @@ export default function CoachChat() {
         />
 
         {/* HEADER */}
-        <div className="coach-header flex items-center justify-between px-6 py-3.5 border-b border-[#141414] bg-[#0a0a0a]">
+        <div className="coach-header flex items-center justify-between px-4 md:px-6 py-3 md:py-3.5 border-b border-[#141414] bg-[#0a0a0a]">
           <div className="flex items-center gap-3">
             <div className="relative w-[38px] h-[38px] rounded-xl bg-gradient-to-br from-[#c8f53a]/[0.18] to-[#c8f53a]/[0.05] border border-[#c8f53a]/30 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -488,7 +491,7 @@ export default function CoachChat() {
         </div>
 
         {/* CONTEXT CHIPS */}
-        <div className="coach-ctx-bar px-6 py-2.5 bg-[#0a0a0a] border-b border-[#141414] flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="coach-ctx-bar px-4 md:px-6 py-2.5 bg-[#0a0a0a] border-b border-[#141414] flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span className="text-[9px] font-mono text-[#444] uppercase tracking-[1.5px] whitespace-nowrap flex items-center gap-1.5">
             <span className="w-1 h-1 rounded-full bg-[#c8f53a] animate-pulse" />
             Kontekst aktywny
@@ -499,7 +502,7 @@ export default function CoachChat() {
         </div>
 
         {/* MESSAGES */}
-        <div ref={messagesRef} className="flex-1 overflow-y-auto px-6 py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {messages.map(msg => (
             <div key={msg.id} className={`coach-msg flex gap-2.5 mb-[18px] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`w-[30px] h-[30px] rounded-lg flex-shrink-0 flex items-center justify-center text-[11px] font-mono font-bold ${
@@ -509,7 +512,7 @@ export default function CoachChat() {
               }`}>
                 {msg.role === 'assistant' ? 'AI' : userInitials}
               </div>
-              <div className="max-w-[75%]">
+              <div className="max-w-[85%] md:max-w-[75%]">
                 <div className={`text-[9px] font-mono text-[#444] uppercase tracking-wider mb-1.5 flex items-center gap-1.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   <span>{msg.role === 'assistant' ? 'Coach AI' : 'Ty'}</span>
                   <span>·</span>
@@ -535,7 +538,7 @@ export default function CoachChat() {
           {isAnalyzing && (
             <div className="coach-msg flex gap-2.5 mb-[18px]">
               <div className="w-[30px] h-[30px] rounded-lg flex-shrink-0 flex items-center justify-center text-[11px] font-mono font-bold bg-[#c8f53a]/10 border border-[#c8f53a]/25 text-[#c8f53a]">AI</div>
-              <div className="max-w-[75%]">
+              <div className="max-w-[85%] md:max-w-[75%]">
                 <div className="text-[9px] font-mono uppercase tracking-wider mb-1.5 text-[#c8f53a]">
                   Coach AI · analizuje dane treningowe...
                 </div>
@@ -548,7 +551,7 @@ export default function CoachChat() {
         </div>
 
         {/* SUGGESTIONS */}
-        <div className="px-6 pb-2.5 pt-1">
+        <div className="px-4 md:px-6 pb-2.5 pt-1">
           <div className="text-[9px] font-mono text-[#444] uppercase tracking-[1.5px] mb-2">Zasugeruj:</div>
           <div className="flex gap-1.5 flex-wrap">
             {SUGGESTED_PROMPTS.map(prompt => (
@@ -562,7 +565,7 @@ export default function CoachChat() {
         </div>
 
         {/* INPUT */}
-        <div className="coach-input-bar px-6 pt-3 pb-4 border-t border-[#141414] bg-[#0a0a0a]">
+        <div className="coach-input-bar px-4 md:px-6 pt-3 pb-4 border-t border-[#141414] bg-[#0a0a0a]">
           <div className="bg-[#111] border border-[#1e1e1e] focus-within:border-[#c8f53a]/30 rounded-2xl p-2.5 flex items-end gap-2 transition-colors">
             <div className="flex gap-0.5 pb-1">
               <button title="Załącz screenshot" className="w-6 h-6 rounded-md flex items-center justify-center text-[#666] hover:bg-white/[0.04] hover:text-[#c8f53a] transition-all cursor-none">

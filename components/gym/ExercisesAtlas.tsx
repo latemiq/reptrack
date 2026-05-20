@@ -149,14 +149,14 @@ function ExerciseDetail({ exercise, onClose, onAddToWorkout }: {
 
   return (
     <div ref={overlayRef}
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-stretch md:items-center justify-center p-0 md:p-6"
       onClick={onClose}
     >
       <div ref={sheetRef}
         onClick={e => e.stopPropagation()}
-        className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-3xl w-full max-w-3xl max-h-[88vh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-none md:rounded-3xl w-full h-full md:h-auto md:max-w-3xl md:max-h-[88vh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        <div className="relative aspect-[16/10] bg-[#0a0a0a] overflow-hidden rounded-t-3xl">
+        <div className="relative aspect-[16/10] bg-[#0a0a0a] overflow-hidden md:rounded-t-3xl">
           {exercise.images.length > 0 ? (
             <Image
               key={imgIdx}
@@ -180,7 +180,7 @@ function ExerciseDetail({ exercise, onClose, onAddToWorkout }: {
           )}
 
           <button onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-[#ccc] hover:text-white hover:border-white/30 transition-all"
+            className="absolute top-3 right-3 w-11 h-11 md:w-9 md:h-9 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-[#ccc] hover:text-white hover:border-white/30 transition-all"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -338,7 +338,7 @@ export default function ExercisesAtlas({ pickMode = false, onPick }: ExercisesAt
 
   return (
     <div ref={containerRef} className={pickMode ? '' : 'flex h-screen bg-[#080808] text-[#f0ece4] overflow-hidden'}>
-      <main className={pickMode ? '' : 'flex-1 overflow-y-auto px-7 py-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'}>
+      <main className={pickMode ? '' : 'flex-1 overflow-y-auto px-4 md:px-7 py-5 md:py-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'}>
 
         {!pickMode && (
           <div className="mb-6 flex justify-between items-end">
@@ -353,7 +353,7 @@ export default function ExercisesAtlas({ pickMode = false, onPick }: ExercisesAt
             </div>
             <button
               onClick={() => router.push('/gym/exercises/new')}
-              className="px-4 py-2.5 rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#c8f53a]/30 hover:text-[#c8f53a] transition-all"
+              className="px-4 py-3 md:py-2.5 min-h-[44px] rounded-xl bg-[#0f0f0f] border border-[#1a1a1a] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#c8f53a]/30 hover:text-[#c8f53a] transition-all"
             >
               + Własne ćwiczenie
             </button>
@@ -440,13 +440,13 @@ export default function ExercisesAtlas({ pickMode = false, onPick }: ExercisesAt
                 <button
                   disabled={page === 0}
                   onClick={() => setPage(p => Math.max(0, p - 1))}
-                  className="px-4 py-2 rounded-lg bg-[#0f0f0f] border border-[#1a1a1a] text-[#888] text-[11px] font-mono uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#333] hover:text-[#ccc] transition-all"
+                  className="px-5 py-3 md:px-4 md:py-2 rounded-lg bg-[#0f0f0f] border border-[#1a1a1a] text-[#888] text-[12px] md:text-[11px] font-mono uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#333] hover:text-[#ccc] transition-all"
                 >← Wstecz</button>
                 <span className="text-[11px] font-mono text-[#666] px-3">{page + 1} / {totalPages}</span>
                 <button
                   disabled={page >= totalPages - 1}
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                  className="px-4 py-2 rounded-lg bg-[#0f0f0f] border border-[#1a1a1a] text-[#888] text-[11px] font-mono uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#333] hover:text-[#ccc] transition-all"
+                  className="px-5 py-3 md:px-4 md:py-2 rounded-lg bg-[#0f0f0f] border border-[#1a1a1a] text-[#888] text-[12px] md:text-[11px] font-mono uppercase tracking-wider disabled:opacity-30 disabled:cursor-not-allowed hover:border-[#333] hover:text-[#ccc] transition-all"
                 >Dalej →</button>
               </div>
             )}

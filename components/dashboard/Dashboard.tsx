@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
 import GoalsView from '@/components/goals/GoalsView'
 import Profile from '@/components/profile/Profile'
+import MobileBottomNav from '@/components/layout/MobileBottomNav'
 
 interface Run   { id: string; name: string; distance: number; pace: string; date: string }
 interface Lift  { id: string; name: string; exercises: number; duration: string; date: string }
@@ -180,8 +181,10 @@ export default function Dashboard() {
   return (
     <div ref={mainRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
 
+      <MobileBottomNav />
+
       {/* SIDEBAR */}
-      <aside className="w-[220px] flex-shrink-0 bg-[#0c0c0c] border-r border-[#1a1a1a] flex flex-col py-7 relative overflow-hidden">
+      <aside className="hidden md:flex w-[220px] flex-shrink-0 bg-[#0c0c0c] border-r border-[#1a1a1a] flex-col py-7 relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#c8f53a]/30 to-transparent" />
 
         <div className="dash-nav-item flex items-center gap-2 px-5 pb-7 border-b border-[#141414]">
@@ -260,18 +263,18 @@ export default function Dashboard() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-[#080808]">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-[#080808] pb-[80px] md:pb-0">
         {activeNav === 'goals' && <GoalsView />}
         {activeNav === 'profile' && <Profile />}
 
         <div className={isStandaloneView ? 'hidden' : ''}>
         {/* TOP BAR */}
-        <div ref={topbarRef} className="flex justify-between items-center px-7 pt-6 mb-6">
+        <div ref={topbarRef} className="flex justify-between items-center px-4 md:px-7 pt-5 md:pt-6 mb-6">
           <div>
             <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">
               {new Date().toLocaleDateString('pl-PL', { weekday:'long', day:'numeric', month:'long' })}
             </p>
-            <h1 className="font-display text-[22px] font-black text-[#f0ece4]">
+            <h1 className="font-display text-[20px] md:text-[22px] font-black text-[#f0ece4]">
               Dobry ranek, <em className="not-italic text-[#c8f53a]">{displayName}</em>
             </h1>
           </div>
@@ -284,10 +287,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="px-7 pb-7 space-y-3">
+        <div className="px-4 md:px-7 pb-7 space-y-3">
 
           {/* HERO KARTY */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 md:gap-3">
 
             {/* Km tygodnia */}
             <div ref={el => { heroRefs.current[0] = el }}
@@ -343,7 +346,7 @@ export default function Dashboard() {
           </div>
 
           {/* DOLNA SIATKA */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
             {/* Feed aktywności */}
             <div ref={feedRef} className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5">
@@ -409,7 +412,7 @@ export default function Dashboard() {
               <span className="text-[10px] font-mono text-[#c8f53a] uppercase tracking-[2px]">AI Coach · Analiza tygodniowa</span>
               <span className="ml-auto text-[9px] font-mono text-[#444] group-hover:text-[#c8f53a] transition-colors">Otwórz →</span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { icon:'🏃', txt:<>Tempo 5km poprawiło się o <strong className="text-[#f0ece4] font-medium">8 sek/km</strong>. Zwiększ objętość o 10% w przyszłym tygodniu.</> },
                 { icon:'🏋️', txt:<>Plateau na martwym ciągu od <strong className="text-[#f0ece4] font-medium">3 tygodni</strong>. Spróbuj deload + zmień zakres na 3×3.</> },

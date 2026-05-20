@@ -141,12 +141,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-inset-bottom">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-bottom">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href)
           return (
             <Link key={item.href} href={item.href}
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center gap-1 min-w-[44px] min-h-[44px] px-3 py-2 rounded-xl transition-all ${
                 active ? 'text-[#c8f53a]' : 'text-[#333]'
               }`}>
               <span className="relative">

@@ -42,7 +42,7 @@ function LiveBar({ workout, elapsed, tonnage, completedSets }: {
           </div>
         </div>
       </div>
-      <div className="flex gap-5 items-center">
+      <div className="flex gap-3 md:gap-5 items-center">
         <Stat value={fmtTime(elapsed)} label="Czas" />
         <Stat value={String(completedSets)} label="Serie" />
         <Stat value={`${(tonnage / 1000).toFixed(1)}t`} label="Tonaż" />
@@ -111,8 +111,8 @@ function ExerciseBlock({
 
       {isActive && (
         <div className="px-3.5 pb-3.5">
-          <div className="grid grid-cols-[32px_1fr_1fr_70px_32px] gap-2 px-1 py-1.5 text-[8px] font-mono text-[#444] uppercase tracking-wider border-b border-[#1a1a1a] mb-1">
-            <span>SER</span><span>KG</span><span>POWT</span><span>RPE</span><span />
+          <div className="grid grid-cols-[28px_1fr_1fr_32px] sm:grid-cols-[32px_1fr_1fr_70px_32px] gap-1.5 sm:gap-2 px-1 py-1.5 text-[8px] font-mono text-[#444] uppercase tracking-wider border-b border-[#1a1a1a] mb-1">
+            <span>SER</span><span>KG</span><span>POWT</span><span className="hidden sm:block">RPE</span><span />
           </div>
           {exercise.sets.map((set, i) => (
             <SetRow
@@ -152,7 +152,7 @@ function SetRow({ set, setNumber, onComplete, onUpdate, onRemove }: {
   }
 
   return (
-    <div className={`grid grid-cols-[32px_1fr_1fr_70px_32px] gap-2 items-center px-1 py-1.5 transition-opacity ${set.done ? 'opacity-55' : ''}`}>
+    <div className={`grid grid-cols-[28px_1fr_1fr_32px] sm:grid-cols-[32px_1fr_1fr_70px_32px] gap-1.5 sm:gap-2 items-center px-1 py-1.5 transition-opacity ${set.done ? 'opacity-55' : ''}`}>
       <span className={`font-mono text-[11px] font-medium ${set.done ? 'text-[#666]' : 'text-[#f5a03a]'}`}>{setNumber}</span>
       <input
         type="number" inputMode="decimal" placeholder={set.weightKg?.toString() ?? '—'}
@@ -173,12 +173,12 @@ function SetRow({ set, setNumber, onComplete, onUpdate, onRemove }: {
         value={set.rpe ?? ''}
         onChange={e => onUpdate({ rpe: e.target.value === '' ? null : Number(e.target.value) })}
         disabled={set.done}
-        className="bg-[#0a0a0a] border border-[#1e1e1e] focus:border-[#f5a03a]/40 rounded-md px-2 py-1.5 text-[11px] text-[#888] font-mono outline-none transition-colors placeholder:text-[#333]"
+        className="hidden sm:block bg-[#0a0a0a] border border-[#1e1e1e] focus:border-[#f5a03a]/40 rounded-md px-2 py-1.5 text-[11px] text-[#888] font-mono outline-none transition-colors placeholder:text-[#333]"
       />
       <button
         ref={checkRef}
         onClick={handleComplete}
-        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
+        className={`w-11 h-11 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-all ${
           set.done
             ? 'bg-[#c8f53a] border-[#c8f53a]'
             : 'bg-[#1a1a1a] border-[#2a2a2a] hover:border-[#444]'
@@ -374,7 +374,7 @@ export default function ActiveWorkout() {
           <LiveBar workout={activeWorkout} elapsed={elapsed} tonnage={tonnage} completedSets={completedSets} />
         </div>
 
-        <div className="workout-topbar px-7 pt-5 pb-2 flex justify-between items-end">
+        <div className="workout-topbar px-4 md:px-7 pt-4 md:pt-5 pb-2 flex justify-between items-end">
           <div>
             <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">Siłownia · aktywna sesja</p>
             <h1 className="font-display text-[22px] font-black">
@@ -395,17 +395,17 @@ export default function ActiveWorkout() {
           </div>
         </div>
 
-        <div className="px-7 pt-3 pb-7">
+        <div className="px-4 md:px-7 pt-3 pb-6 md:pb-7">
           {saveError && (
             <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">
               {saveError}. Trening nadal jest zapisany lokalnie.
             </div>
           )}
 
-          <div className="grid grid-cols-[1fr_320px] gap-3.5">
+          <div className="flex flex-col-reverse lg:grid lg:grid-cols-[1fr_320px] gap-3.5">
 
             {/* WORKOUT AREA */}
-            <div className="workout-area bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5 min-h-[560px]">
+            <div className="workout-area bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4 md:p-5 min-h-[560px]">
               <div className="flex justify-between items-start mb-4 pb-3.5 border-b border-[#161616]">
                 <div>
                   <div className="font-display text-[18px] font-black text-[#f0ece4] mb-0.5">{activeWorkout.name}</div>

@@ -187,7 +187,7 @@ export default function ImportScreenshot() {
 
   return (
     <div ref={containerRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
-      <main className="flex-1 overflow-y-auto px-7 py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <main className="flex-1 overflow-y-auto px-4 md:px-7 py-5 md:py-7 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* HEADER */}
         <div className="mb-6 flex justify-between items-end">
           <div>
@@ -210,7 +210,7 @@ export default function ImportScreenshot() {
             <div className="import-stage">
               <div ref={dropZoneRef}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all ${
+                className={`border-2 border-dashed rounded-3xl p-6 md:p-12 text-center cursor-pointer transition-all ${
                   isDragging
                     ? 'border-[#f5a03a] bg-[#f5a03a]/[0.06]'
                     : 'border-[#1e1e1e] hover:border-[#f5a03a]/40 hover:bg-[#f5a03a]/[0.02]'
@@ -248,7 +248,7 @@ export default function ImportScreenshot() {
                 <div className="mt-3 text-[12px] text-red-400 text-center">{error}</div>
               )}
 
-              <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { icon: '⚡', title: 'Auto-detekcja', sub: 'Rozpoznaje typ aplikacji' },
                   { icon: '✏', title: 'Edytowalne', sub: 'Skoryguj jeśli AI się pomyli' },
@@ -267,7 +267,7 @@ export default function ImportScreenshot() {
           {/* STAGE: PARSING */}
           {stage === 'parsing' && (
             <div className="import-stage">
-              <div className="grid grid-cols-[200px_1fr] gap-4 bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5">
+              <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4 bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5">
                 {imageUrl && (
                   <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
                     <Image src={imageUrl} alt="Screenshot" fill sizes="200px" unoptimized className="object-cover" />
@@ -314,7 +314,7 @@ export default function ImportScreenshot() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-[180px_1fr] gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
                 {imageUrl && (
                   <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
                     <Image src={imageUrl} alt="Screenshot" fill sizes="180px" unoptimized className="object-cover" />

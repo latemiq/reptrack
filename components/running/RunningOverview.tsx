@@ -177,7 +177,7 @@ function RunListItem({ run, onClick }: { run: Run; onClick: () => void }) {
         <div className="font-display text-[13px] font-black text-[#f0ece4]">{fmtPace(run.avgPaceSecondsPerKm)}</div>
         <div className="text-[8px] font-mono text-[#444] uppercase">/km</div>
       </div>
-      <div className="text-right min-w-[54px]">
+      <div className="hidden sm:block text-right min-w-[54px]">
         <div className="font-display text-[13px] font-black text-[#f0ece4]">{run.avgHr ?? '—'}</div>
         <div className="text-[8px] font-mono text-[#444] uppercase">bpm</div>
       </div>
@@ -377,7 +377,7 @@ export default function RunningOverview({
       <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
         {/* TOPBAR */}
-        <div className="run-topbar px-7 pt-6 pb-2 flex justify-between items-end">
+        <div className="run-topbar px-4 md:px-7 pt-5 md:pt-6 pb-2 flex justify-between items-end">
           <div>
             <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">
               Bieganie · {rangeFilter === '7d' ? '7 dni' : rangeFilter === '30d' ? '30 dni' : rangeFilter === '90d' ? '90 dni' : 'rok'}
@@ -403,15 +403,15 @@ export default function RunningOverview({
                 <path d="M5.5 8V2M3 4.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M2 9.5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
-              Import Garmin
+              <span className="hidden sm:inline">Import Garmin</span>
             </button>
           </div>
         </div>
 
-        <div className="px-7 pb-7 pt-3">
+        <div className="px-4 md:px-7 pb-6 md:pb-7 pt-3">
 
           {/* HERO GRID */}
-          <div className="grid grid-cols-4 gap-2.5 mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-2.5 mb-3">
             <HeroCard accent tag="Dystans" trend="+12%" trendUp valueColor="orange"
               value="0" sub={`${stats.runCount} biegów · 30 dni`}
               animateId="cnt-distance"
@@ -430,7 +430,7 @@ export default function RunningOverview({
           </div>
 
           {/* MAIN GRID */}
-          <div className="grid grid-cols-[1.6fr_1fr] gap-3 mb-3">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3 mb-3">
 
             {/* RUN LIST */}
             <div className="run-list-card bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-[18px]">
@@ -474,7 +474,7 @@ export default function RunningOverview({
           </div>
 
           {/* BOTTOM ROW */}
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
             <BottomCard title="Cele tygodnia" items={[
               { label:'Dystans',       value:`${stats.weekDistanceKm.toFixed(1)} / ${stats.weekGoalKm} km`, accent:true },
               { label:'Liczba biegów', value:`${stats.weekRunCount} / ${stats.weekRunGoal}` },
