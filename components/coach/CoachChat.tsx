@@ -5,7 +5,6 @@ import gsap from 'gsap'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import MobileBottomNav from '@/components/layout/MobileBottomNav'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -370,8 +369,6 @@ export default function CoachChat() {
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
-
-      <MobileBottomNav />
 
       {/* ── SIDEBAR ── */}
       <aside className="hidden md:flex w-[240px] flex-shrink-0 bg-[#0a0a0a] border-r border-[#161616] flex-col py-3.5">

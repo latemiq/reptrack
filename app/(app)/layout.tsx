@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { useNotificationsStore, selectUnreadCount } from '@/lib/stores/useNotificationsStore'
 
 const NAV_ITEMS = [
@@ -62,13 +63,47 @@ const NAV_ITEMS = [
   },
 ]
 
+const ACCOUNT_ITEMS = [
+  {
+    href: '/profile',
+    label: 'Profil',
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+        <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    href: '/settings',
+    label: 'Ustawienia',
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+]
+
+const ALL_NAV = [...NAV_ITEMS, ...ACCOUNT_ITEMS]
+
+function isActiveRoute(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { user } = useUser()
   const unreadCount = useNotificationsStore(selectUnreadCount)
+  const activeNavItem = ALL_NAV.find((item) => isActiveRoute(pathname, item.href))
 
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/coach')) {
-    return <>{children}</>
-  }
+  const userInitials = user
+    ? (`${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`).toUpperCase() ||
+      user.primaryEmailAddress?.emailAddress?.[0]?.toUpperCase() || 'U'
+    : 'U'
+  const displayName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Profil' : '...'
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? ''
 
   return (
     <div className="flex h-screen bg-[#0a0a0a] overflow-hidden">
@@ -83,7 +118,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
-            const active = pathname.startsWith(item.href)
+            const active = isActiveRoute(pathname, item.href)
             return (
               <Link key={item.href} href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-dm-sans text-sm transition-all ${
@@ -108,10 +143,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="px-6 py-5 border-t border-[#1e1e1e]">
-          <div className="font-dm-mono text-[10px] text-[#333] uppercase tracking-widest">
-            AI Fitness Tracker
-          </div>
+        <div className="mt-auto border-t border-[#1e1e1e] px-3 pt-3 pb-4 flex flex-col gap-1">
+          <p className="px-3 pb-1 text-[9px] font-dm-mono text-[#2a2a2a] uppercase tracking-[2px]">Konto</p>
+          {ACCOUNT_ITEMS.map((item) => {
+            const active = isActiveRoute(pathname, item.href)
+            return (
+              <Link key={item.href} href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg font-dm-sans text-sm transition-all ${
+                  active ? 'bg-[#141414] text-[#c8f53a]' : 'text-[#555] hover:text-[#f0ece4] hover:bg-[#141414]'
+                }`}>
+                <span className={active ? 'text-[#c8f53a]' : 'text-[#333]'}>{item.icon}</span>
+                {item.label}
+                {active && <span className="ml-auto w-1 h-1 rounded-full bg-[#c8f53a]" />}
+              </Link>
+            )
+          })}
+          <Link href="/profile"
+            className="mt-1 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#c8f53a]/[0.05] border border-[#c8f53a]/15 hover:border-[#c8f53a]/25 transition-colors">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#c8f53a] to-[#7ef5b0] flex items-center justify-center text-[#080808] font-bold text-[10px] flex-shrink-0 overflow-hidden">
+              {user?.imageUrl
+                ? <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+                : userInitials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-medium text-[#f0ece4] leading-none truncate">{displayName}</div>
+              <div className="text-[9px] font-dm-mono text-[#444] mt-0.5 truncate">{userEmail}</div>
+            </div>
+          </Link>
         </div>
       </aside>
 
@@ -121,16 +179,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-[#1e1e1e] bg-[#0f0f0f] shrink-0">
           <div>
             <h1 className="font-syne font-bold text-[#f0ece4] text-base">
-              {NAV_ITEMS.find((n) => pathname.startsWith(n.href))?.label ?? 'RepTrack'}
+              {activeNavItem?.label ?? 'RepTrack'}
             </h1>
           </div>
           <div className="flex items-center gap-3">
             <span className="font-dm-mono text-[11px] text-[#555]">
               {new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
-            <div className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center">
-              <span className="text-[#c8f53a] text-xs font-syne font-bold">U</span>
-            </div>
+            <Link href="/profile" className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center overflow-hidden hover:border-[#333] transition-colors">
+              {user?.imageUrl
+                ? <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+                : <span className="text-[#c8f53a] text-xs font-syne font-bold">{userInitials}</span>}
+            </Link>
           </div>
         </header>
 
@@ -142,8 +202,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-bottom">
-        {NAV_ITEMS.map((item) => {
-          const active = pathname.startsWith(item.href)
+        {[...NAV_ITEMS, ACCOUNT_ITEMS[0]].map((item) => {
+          const active = isActiveRoute(pathname, item.href)
           return (
             <Link key={item.href} href={item.href}
               className={`flex flex-col items-center justify-center gap-1 min-w-[44px] min-h-[44px] px-3 py-2 rounded-xl transition-all ${

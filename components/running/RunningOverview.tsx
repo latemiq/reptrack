@@ -83,7 +83,7 @@ const MOCK_GOALS: RunningGoals = {
   pr5k:  { current:'22:14',   target:'21:00' },
   pr10k: { current:'47:32',   target:'45:00' },
   prHalf:{ current:'1:48:00', target:'1:42:00' },
-  nextRace: { name:'Maraton Warszawski', targetTime:'3:45:00', date:'28.09.2025', weeksLeft:22 },
+  nextRace: { name:'Maraton Warszawski', targetTime:'2:45:00', date:'28.09.2025', weeksLeft:22 },
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────

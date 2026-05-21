@@ -2,12 +2,9 @@
 
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { UserButton, useUser } from '@clerk/nextjs'
-import GoalsView from '@/components/goals/GoalsView'
-import Profile from '@/components/profile/Profile'
-import MobileBottomNav from '@/components/layout/MobileBottomNav'
+import { useUser } from '@clerk/nextjs'
 
 interface Run   { id: string; name: string; distance: number; pace: string; date: string }
 interface Lift  { id: string; name: string; exercises: number; duration: string; date: string }
@@ -76,49 +73,11 @@ function WeekStrip() {
   )
 }
 
-function NavItem({
-  label, active, badge, badgeOrange, icon, onClick, tone = 'lime',
-}: {
-  label: string; active?: boolean; badge?: string; badgeOrange?: boolean
-  icon: React.ReactNode; onClick: () => void; tone?: 'lime' | 'purple'
-}) {
-  const activeClasses = tone === 'purple'
-    ? 'bg-[#c88cff]/[0.08] border border-[#c88cff]/20'
-    : 'bg-[#c8f53a]/[0.08] border border-[#c8f53a]/20'
-  const iconActiveClass = tone === 'purple' ? 'bg-[#c88cff]/15' : 'bg-[#c8f53a]/15'
-
-  return (
-    <button onClick={onClick} className={`
-      w-full flex items-center gap-2.5 px-3 py-2.5 mx-2 rounded-xl text-left
-      transition-all duration-200 group
-      ${active
-        ? activeClasses
-        : 'border border-transparent hover:bg-white/[0.03]'
-      }
-    `} style={{ width: 'calc(100% - 16px)' }}>
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all
-        ${active ? iconActiveClass : 'group-hover:scale-105'}`}>
-        {icon}
-      </div>
-      <span className={`text-[13px] transition-colors ${active ? 'text-[#f0ece4] font-medium' : 'text-[#777] group-hover:text-[#bbb]'}`}>
-        {label}
-      </span>
-      {badge && (
-        <span className={`ml-auto text-[9px] font-mono rounded px-1.5 py-0.5 ${
-          badgeOrange ? 'bg-[#f5a03a]/15 text-[#f5a03a]' : 'bg-[#c8f53a]/15 text-[#c8f53a]'
-        }`}>{badge}</span>
-      )}
-    </button>
-  )
-}
-
 export default function Dashboard() {
-  const { isSignedIn, user } = useUser()
+  const { user } = useUser()
   const displayName = user?.firstName ?? user?.username ?? 'Użytkowniku'
-  const displayEmail = user?.primaryEmailAddress?.emailAddress ?? 'demo@reptrack.local'
 
   const router = useRouter()
-  const [activeNav, setActiveNav] = useState('dashboard')
   const mainRef    = useRef<HTMLDivElement>(null)
   const topbarRef  = useRef<HTMLDivElement>(null)
   const heroRefs   = useRef<(HTMLDivElement | null)[]>([])
@@ -129,12 +88,9 @@ export default function Dashboard() {
   useGSAP(() => {
     const tl = gsap.timeline({ delay: 0.05 })
 
-    tl.from('.dash-nav-item', {
-      opacity: 0, x: -16, duration: 0.4, stagger: 0.05, ease: 'expo.out'
-    })
     tl.from(topbarRef.current, {
       opacity: 0, y: -12, duration: 0.45, ease: 'expo.out'
-    }, '-=0.2')
+    })
     tl.from(heroRefs.current.filter(Boolean), {
       opacity: 0, y: 20, duration: 0.5, stagger: 0.1, ease: 'expo.out'
     }, '-=0.25')
@@ -169,105 +125,10 @@ export default function Dashboard() {
     })
   }, [])
 
-  const handleNavClick = (key: string) => {
-    setActiveNav(key)
-    if (mainRef.current) {
-      gsap.fromTo(mainRef.current, { opacity: 0.7 }, { opacity: 1, duration: 0.3, ease: 'power2.out' })
-    }
-  }
-
-  const isStandaloneView = activeNav === 'goals' || activeNav === 'profile'
-
   return (
-    <div ref={mainRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
+    <div ref={mainRef} className="min-h-full bg-[#080808] text-[#f0ece4] font-sans">
 
-      <MobileBottomNav />
-
-      {/* SIDEBAR */}
-      <aside className="hidden md:flex w-[220px] flex-shrink-0 bg-[#0c0c0c] border-r border-[#1a1a1a] flex-col py-7 relative overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#c8f53a]/30 to-transparent" />
-
-        <div className="dash-nav-item flex items-center gap-2 px-5 pb-7 border-b border-[#141414]">
-          <div className="w-2 h-2 rounded-full bg-[#c8f53a]" />
-          <span className="font-display text-base font-black text-[#f0ece4]">RepTrack</span>
-        </div>
-
-        <p className="dash-nav-item px-5 pt-5 pb-2 text-[9px] font-mono text-[#2a2a2a] uppercase tracking-[2.5px]">Główne</p>
-
-        <div className="dash-nav-item">
-          <NavItem label="Dashboard" active={activeNav==='dashboard'} onClick={()=>handleNavClick('dashboard')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill={activeNav==='dashboard'?'#c8f53a':'#444'}/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="#222"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="#222"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="#222"/></svg>}
-          />
-        </div>
-        <div className="dash-nav-item">
-          <NavItem label="Bieganie" active={activeNav==='running'} badge="3" onClick={()=>router.push('/running')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.5" stroke="#555" strokeWidth="1.5"/><path d="M8 5.5v2.5l2 2" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/></svg>}
-          />
-        </div>
-        <div className="dash-nav-item">
-          <NavItem label="Siłownia" active={activeNav==='gym'} badge="+2.5" badgeOrange onClick={()=>router.push('/gym')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="4" y="6.5" width="8" height="3" rx="1.5" fill="none" stroke="#555" strokeWidth="1.5"/><rect x="1" y="6.5" width="3" height="3" rx="1" fill="none" stroke="#555" strokeWidth="1.5"/><rect x="12" y="6.5" width="3" height="3" rx="1" fill="none" stroke="#555" strokeWidth="1.5"/></svg>}
-          />
-        </div>
-        <div className="dash-nav-item">
-          <NavItem label="Import" active={activeNav==='import'} onClick={()=>router.push('/running/import')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 10V4M5 7l3-3 3 3" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 12h12" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/></svg>}
-          />
-        </div>
-
-        <p className="dash-nav-item px-5 pt-5 pb-2 text-[9px] font-mono text-[#2a2a2a] uppercase tracking-[2.5px]">Analiza</p>
-
-        <div className="dash-nav-item">
-          <NavItem label="AI Coach" active={activeNav==='coach'} onClick={()=>router.push('/coach')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="#555" strokeWidth="1.5"/><path d="M3.5 13.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/></svg>}
-          />
-        </div>
-        <div className="dash-nav-item">
-          <NavItem label="Postępy" active={activeNav==='progress'} onClick={()=>handleNavClick('progress')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="2,12 6,7 9,9 14,4" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-          />
-        </div>
-        <div className="dash-nav-item">
-          <NavItem label="Cele" active={activeNav==='goals'} tone="purple" onClick={()=>handleNavClick('goals')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke={activeNav==='goals'?'#c88cff':'#555'} strokeWidth="1.5"/><circle cx="8" cy="8" r="3" stroke={activeNav==='goals'?'#c88cff':'#555'} strokeWidth="1.5"/><circle cx="8" cy="8" r="1" fill={activeNav==='goals'?'#c88cff':'#555'}/></svg>}
-          />
-        </div>
-        <div className="dash-nav-item">
-          <NavItem label="Atlas ćwiczeń" active={activeNav==='exercises'} onClick={()=>router.push('/gym/exercises')}
-            icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="1.5" stroke="#555" strokeWidth="1.5"/><line x1="2" y1="6" x2="14" y2="6" stroke="#555" strokeWidth="1.5"/><circle cx="5" cy="9.5" r="0.8" fill="#555"/></svg>}
-          />
-        </div>
-
-        <div className="mt-auto pt-4 border-t border-[#141414] px-2">
-          <div className="dash-nav-item">
-            <NavItem label="Profil" active={activeNav==='profile'} onClick={()=>handleNavClick('profile')}
-              icon={<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="2.5" stroke="#555" strokeWidth="1.5"/><path d="M3 13c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/></svg>}
-            />
-          </div>
-          <div className="flex items-center gap-2.5 px-3 py-2 mt-1">
-            {isSignedIn ? (
-              <UserButton afterSignOutUrl="/auth" appearance={{
-                elements: { avatarBox: 'w-8 h-8 ring-1 ring-[#c8f53a]/20' }
-              }}/>
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center ring-1 ring-[#c8f53a]/20">
-                <span className="text-[#c8f53a] text-xs font-syne font-bold">D</span>
-              </div>
-            )}
-            <div>
-              <div className="text-[12px] font-medium text-[#bbb]">{displayName}</div>
-              <div className="text-[10px] font-mono text-[#444]">{displayEmail}</div>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* MAIN */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-[#080808] pb-[80px] md:pb-0">
-        {activeNav === 'goals' && <GoalsView />}
-        {activeNav === 'profile' && <Profile />}
-
-        <div className={isStandaloneView ? 'hidden' : ''}>
+      <main className="w-full overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-[#080808]">
         {/* TOP BAR */}
         <div ref={topbarRef} className="flex justify-between items-center px-4 md:px-7 pt-5 md:pt-6 mb-6">
           <div>
@@ -426,7 +287,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-        </div>
         </div>
       </main>
     </div>

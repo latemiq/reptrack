@@ -70,6 +70,10 @@ const NAV_ITEMS = [
   { href: '/notifications',  label: 'Powiad.', Icon: BellIcon,   activeColor: '#c8f53a' },
 ]
 
+function isActiveRoute(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
+
 export default function MobileBottomNav() {
   const pathname = usePathname()
   const unreadCount = useNotificationsStore(selectUnreadCount)
@@ -78,7 +82,7 @@ export default function MobileBottomNav() {
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a]/95 backdrop-blur-lg border-t border-[#1a1a1a] safe-area-bottom">
       <div className="flex justify-around items-center h-[62px] px-1 pt-1.5">
         {NAV_ITEMS.map(({ href, label, Icon, activeColor }) => {
-          const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+          const isActive = isActiveRoute(pathname, href)
           return (
             <Link
               key={href}
