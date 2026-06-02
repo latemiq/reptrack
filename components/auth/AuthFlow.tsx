@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignUp, useSignIn } from '@clerk/nextjs'
+import { useSignUp, useSignIn, useClerk } from '@clerk/nextjs'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useRef, useState, useCallback } from 'react'
@@ -78,8 +78,9 @@ const BG_MAP: Record<string, number> = {
 
 export default function AuthFlow() {
   const router = useRouter()
-  const { signUp, setActive: setActiveUp, isLoaded: upLoaded } = useSignUp()
-  const { signIn, setActive: setActiveIn, isLoaded: inLoaded } = useSignIn()
+  const { signUp, isLoaded: upLoaded } = useSignUp()
+  const { signIn, isLoaded: inLoaded } = useSignIn()
+  const { setActive } = useClerk()
 
   const [mode, setMode] = useState<Mode>('choose')
   const [step, setStep] = useState<Step>('email')
@@ -144,7 +145,8 @@ export default function AuthFlow() {
       setEmail(normalizedEmail)
       go('verify')
     } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Błąd')
+      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
+      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
     } finally { setLoading(false) }
   }
 
@@ -153,12 +155,18 @@ export default function AuthFlow() {
     setLoading(true)
     try {
       const res = await signUp.attemptEmailAddressVerification({ code: code.trim() })
-      if (res.createdSessionId) {
+      if (res.status === 'complete' && res.createdSessionId) {
         setCreatedSessionId(res.createdSessionId)
+        go('profile')
+      } else if (res.status === 'missing_requirements') {
+        const missing = res.missingFields?.join(', ') || '?'
+        setError(`Brakujące pola: [${missing}] — uzupełnij je w Clerk Dashboard (Configure → Email, Phone, Username → Personal information)`)
+      } else {
+        setError(`Nieoczekiwany status: ${res.status}`)
       }
-      go('profile')
     } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowy kod')
+      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
+      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
     } finally { setLoading(false) }
   }
 
@@ -167,16 +175,19 @@ export default function AuthFlow() {
   }
 
   const handleGoals = async () => {
-    if (!signUp || !setActiveUp) return
+    const sessionId = createdSessionId ?? signUp?.createdSessionId
+    if (!sessionId) {
+      setError('Sesja wygasła lub rejestracja nie została ukończona. Zacznij od nowa.')
+      return
+    }
     setLoading(true)
     try {
-      const sessionId = createdSessionId ?? signUp.createdSessionId
-      if (!sessionId) throw new Error('Nie udało się utworzyć sesji. Spróbuj się zalogować.')
-      await setActiveUp({ session: sessionId })
+      await setActive({ session: sessionId })
       go('success')
       setTimeout(navigateToDashboard, 1500)
     } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Błąd')
+      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
+      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
     } finally { setLoading(false) }
   }
 
@@ -189,7 +200,7 @@ export default function AuthFlow() {
   }
 
   const handleLogPassword = async () => {
-    if (!signIn || !setActiveIn || !inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
+    if (!signIn || !inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
     setLoading(true)
     try {
       let res = await signIn.create({ identifier: email, password })
@@ -199,7 +210,7 @@ export default function AuthFlow() {
       }
 
       if (res.status === 'complete') {
-        await setActiveIn({ session: res.createdSessionId })
+        await setActive({ session: res.createdSessionId })
         router.push('/dashboard')
       } else if (res.status === 'needs_second_factor') {
         setError('Wymagana weryfikacja dwuetapowa (2FA) — skonfiguruj ją w ustawieniach konta')
@@ -207,7 +218,8 @@ export default function AuthFlow() {
         setError(`Nie można zakończyć logowania (status: ${res.status})`)
       }
     } catch (e: unknown) {
-      setError((e as {errors?:{message:string}[]}).errors?.[0]?.message ?? 'Nieprawidłowe dane logowania')
+      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
+      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
     } finally { setLoading(false) }
   }
 
@@ -258,9 +270,6 @@ export default function AuthFlow() {
             className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-sm text-[#f0ece4] placeholder:text-neutral-700 focus:outline-none focus:border-[#c8f53a]/40 transition-colors"/>
           {mode==='register'&&<PwStrength value={password}/>}
         </div>
-        {mode === 'register' && (
-          <div id="clerk-captcha" data-cl-theme="dark" data-cl-size="flexible" className="mb-4" />
-        )}
         <BtnPrimary loading={loading} onClick={mode==='register'?handleRegPassword:handleLogPassword}>{mode==='register'?'Dalej →':'Zaloguj →'}</BtnPrimary>
         <BtnBack onClick={()=>go('email')}/>
       </>
@@ -388,6 +397,9 @@ export default function AuthFlow() {
       <div ref={bgRef5} className="absolute inset-0 opacity-0 pointer-events-none bg-[#080808]">
         <div className="absolute inset-0 [background-image:radial-gradient(circle_at_50%_50%,rgba(200,245,58,0.05)_0%,transparent_60%)]"/>
       </div>
+
+      {/* Clerk CAPTCHA - musi być zawsze w DOM */}
+      <div id="clerk-captcha" className="absolute opacity-0 pointer-events-none" aria-hidden="true" />
 
       {/* KARTA */}
       <div className="relative z-10 flex items-center justify-center min-h-screen p-8">
