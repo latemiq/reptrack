@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, age, height_cm, location, level, bio, created_at')
+    .select('id, age, height_cm, weight_kg, location, level, bio, created_at')
     .eq('id', userId)
     .single()
 
@@ -40,7 +40,7 @@ export async function GET() {
     profile: {
       age:      data.age,
       heightCm: data.height_cm,
-      weightKg: lastWeight,
+      weightKg: lastWeight ?? data.weight_kg ?? null,
       location: data.location,
       level:    data.level,
       bio:      data.bio,
@@ -54,7 +54,7 @@ export async function PATCH(req: Request) {
 
   const body = await req.json()
   const updates: Record<string, unknown> = {}
-  const ALLOWED = ['age', 'height_cm', 'location', 'level', 'bio']
+  const ALLOWED = ['age', 'height_cm', 'weight_kg', 'location', 'level', 'bio']
 
   for (const key of ALLOWED) {
     if (key in body) updates[key] = body[key]

@@ -4,7 +4,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useUser, useClerk } from '@clerk/nextjs'
 
 export interface ProfileData {
   firstName: string | null
@@ -105,6 +105,7 @@ function LifetimeStatCard({
 export default function UserProfile({ profile: profileProp, stats: statsProp }: UserProfileProps) {
   const router = useRouter()
   const { user, isLoaded } = useUser()
+  const { signOut } = useClerk()
   const containerRef = useRef<HTMLDivElement>(null)
   const [profile, setProfile] = useState<Partial<ProfileData>>(profileProp ?? {})
   const [liveStats, setLiveStats] = useState<LifetimeStats>(MOCK_STATS)
@@ -194,6 +195,13 @@ export default function UserProfile({ profile: profileProp, stats: statsProp }: 
           >
             <span className="md:hidden">✎</span>
             <span className="hidden md:inline">Edytuj profil</span>
+          </button>
+          <button
+            onClick={() => signOut(() => router.push('/auth'))}
+            className="px-3 md:px-4 py-2.5 md:py-2 rounded-lg bg-red-500/[0.06] border border-red-500/20 text-red-400 text-[11px] font-mono uppercase tracking-[1.3px] hover:bg-red-500/10 hover:border-red-500/40 transition-all cursor-pointer"
+          >
+            <span className="md:hidden">↪</span>
+            <span className="hidden md:inline">Wyloguj się</span>
           </button>
         </div>
       </div>

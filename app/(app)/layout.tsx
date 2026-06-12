@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { usePathname, useRouter } from 'next/navigation'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { useNotificationsStore, selectUnreadCount } from '@/lib/stores/useNotificationsStore'
 
 const NAV_ITEMS = [
@@ -94,7 +94,9 @@ function isActiveRoute(pathname: string, href: string) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user } = useUser()
+  const { signOut } = useClerk()
   const unreadCount = useNotificationsStore(selectUnreadCount)
   const activeNavItem = ALL_NAV.find((item) => isActiveRoute(pathname, item.href))
 
@@ -170,6 +172,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="text-[9px] font-dm-mono text-[#444] mt-0.5 truncate">{userEmail}</div>
             </div>
           </Link>
+          <button
+            onClick={() => signOut(() => router.push('/auth'))}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg font-dm-sans text-sm text-[#555] hover:text-red-400 hover:bg-red-500/[0.06] transition-all w-full text-left cursor-pointer">
+            <span className="text-[#333]">
+              <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+                <path d="M8 3H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M13 14l3-4-3-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="16" y1="10" x2="8" y2="10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </span>
+            Wyloguj się
+          </button>
         </div>
       </aside>
 

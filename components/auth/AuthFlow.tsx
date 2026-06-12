@@ -7,9 +7,10 @@ import { useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Mode = 'choose' | 'login' | 'register'
-type Step = 'email' | 'password' | 'verify' | 'profile' | 'goals' | 'success'
+type Step = 'email' | 'password' | 'verify' | 'profile' | 'goals' | 'stats' | 'success'
 
 interface Profile { name: string; weight: number; height: number }
+interface TrainingStats { level: string; weeklyDays: number }
 
 function Field({ label, type = 'text', placeholder, value, onChange, autoFocus = false }: {
   label: string; type?: string; placeholder: string
@@ -73,7 +74,7 @@ function ErrMsg({ msg }: { msg: string }) {
 }
 
 const BG_MAP: Record<string, number> = {
-  choose:0, email:1, password:2, verify:2, profile:3, goals:4, success:5
+  choose:0, email:1, password:2, verify:2, profile:3, goals:4, stats:4, success:5
 }
 
 export default function AuthFlow() {
@@ -89,6 +90,7 @@ export default function AuthFlow() {
   const [code, setCode] = useState('')
   const [profile, setProfile] = useState<Profile>({ name:'', weight:78, height:178 })
   const [goals, setGoals] = useState<string[]>([])
+  const [trainingStats, setTrainingStats] = useState<TrainingStats>({ level: '', weeklyDays: 3 })
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -174,7 +176,15 @@ export default function AuthFlow() {
     go('goals')
   }
 
-  const handleGoals = async () => {
+  const handleGoals = () => {
+    if (goals.length === 0) {
+      setError('Wybierz co najmniej jeden cel')
+      return
+    }
+    go('stats')
+  }
+
+  const handleStats = async () => {
     const sessionId = createdSessionId ?? signUp?.createdSessionId
     if (!sessionId) {
       setError('Sesja wygasła lub rejestracja nie została ukończona. Zacznij od nowa.')
@@ -183,6 +193,19 @@ export default function AuthFlow() {
     setLoading(true)
     try {
       await setActive({ session: sessionId })
+      try {
+        await fetch('/api/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            weightKg:  profile.weight,
+            heightCm:  profile.height,
+            level:     trainingStats.level || 'beginner',
+            weeklyDays: trainingStats.weeklyDays,
+            goals,
+          }),
+        })
+      } catch { /* best-effort — don't block the user */ }
       go('success')
       setTimeout(navigateToDashboard, 1500)
     } catch (e: unknown) {
@@ -246,8 +269,8 @@ export default function AuthFlow() {
 
     if (step === 'email') return (
       <>
-        <Dots total={mode==='register'?5:3} current={0}/>
-        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">{mode==='register'?'Krok 1 z 5':'Krok 1 z 3'}</p>
+        <Dots total={mode==='register'?6:3} current={0}/>
+        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">{mode==='register'?'Krok 1 z 6':'Krok 1 z 3'}</p>
         <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">Twój <em className="not-italic text-[#c8f53a]">email</em></h2>
         <p className="text-[13px] text-neutral-600 mb-6">{mode==='register'?'Wyślemy kod weryfikacyjny.':'Wpisz email powiązany z kontem.'}</p>
         <ErrMsg msg={error}/>
@@ -259,8 +282,8 @@ export default function AuthFlow() {
 
     if (step === 'password') return (
       <>
-        <Dots total={mode==='register'?5:3} current={1}/>
-        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">{mode==='register'?'Krok 2 z 5':'Krok 2 z 3'}</p>
+        <Dots total={mode==='register'?6:3} current={1}/>
+        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">{mode==='register'?'Krok 2 z 6':'Krok 2 z 3'}</p>
         <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">{mode==='register'?<>Ustaw <em className="not-italic text-[#c8f53a]">hasło</em></>:<>Wpisz <em className="not-italic text-[#c8f53a]">hasło</em></>}</h2>
         <p className="text-[13px] text-neutral-600 mb-6">{mode==='register'?'Min. 8 znaków, cyfry i symbole.':`Logowanie jako ${email}`}</p>
         <ErrMsg msg={error}/>
@@ -277,8 +300,8 @@ export default function AuthFlow() {
 
     if (step === 'verify') return (
       <>
-        <Dots total={5} current={2}/>
-        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 3 z 5</p>
+        <Dots total={6} current={2}/>
+        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 3 z 6</p>
         <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">Sprawdź <em className="not-italic text-[#c8f53a]">email</em></h2>
         <p className="text-[13px] text-neutral-600 mb-6">Wysłaliśmy 6-cyfrowy kod na <strong className="text-neutral-400 font-normal">{email}</strong></p>
         <ErrMsg msg={error}/>
@@ -290,8 +313,8 @@ export default function AuthFlow() {
 
     if (step === 'profile') return (
       <>
-        <Dots total={5} current={3}/>
-        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 4 z 5</p>
+        <Dots total={6} current={3}/>
+        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 4 z 6</p>
         <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">Twój <em className="not-italic text-[#c8f53a]">profil</em></h2>
         <p className="text-[13px] text-neutral-600 mb-5">Dane pomagają AI dokładniej analizować postępy.</p>
         <Field label="Imię" placeholder="Mateusz" value={profile.name} onChange={v=>setProfile(p=>({...p,name:v}))} autoFocus/>
@@ -316,8 +339,8 @@ export default function AuthFlow() {
 
     if (step === 'goals') return (
       <>
-        <Dots total={5} current={4}/>
-        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 5 z 5</p>
+        <Dots total={6} current={4}/>
+        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 5 z 6</p>
         <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">Twoje <em className="not-italic text-[#c8f53a]">cele</em></h2>
         <p className="text-[13px] text-neutral-600 mb-5">Wybierz co chcesz osiągnąć.</p>
         <div className="flex flex-col gap-2 mb-5">
@@ -339,8 +362,53 @@ export default function AuthFlow() {
             )
           })}
         </div>
-        <BtnPrimary loading={loading} onClick={handleGoals}>Utwórz konto →</BtnPrimary>
+        <BtnPrimary onClick={handleGoals}>Dalej →</BtnPrimary>
         <BtnBack onClick={()=>go('profile')}/>
+      </>
+    )
+
+    if (step === 'stats') return (
+      <>
+        <Dots total={6} current={5}/>
+        <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 6 z 6</p>
+        <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">Twój <em className="not-italic text-[#c8f53a]">poziom</em></h2>
+        <p className="text-[13px] text-neutral-600 mb-5">Dopasujemy plan do Twojego doświadczenia.</p>
+        <div className="flex flex-col gap-2 mb-5">
+          {[
+            {key:'beginner',   label:'Początkujący',         sub:'Zaczynam przygodę z treningiem'},
+            {key:'intermediate',label:'Średniozaawansowany', sub:'1–3 lata regularnego treningu'},
+            {key:'advanced',   label:'Zaawansowany',         sub:'Ponad 3 lata, wiem co robię'},
+          ].map(({key,label,sub})=>{
+            const sel=trainingStats.level===key
+            return (
+              <button key={key} onClick={()=>setTrainingStats(s=>({...s,level:key}))}
+                className={`flex items-center gap-3 p-4 rounded-2xl border text-left cursor-pointer transition-all duration-200 ${sel?'bg-[#c8f53a]/[0.08] border-[#c8f53a]/40 translate-x-1':'bg-white/[0.02] border-white/[0.08] hover:border-[#c8f53a]/20 hover:translate-x-1'}`}>
+                <div className="flex-1">
+                  <div className="text-[13px] font-medium text-[#d0ccc4]">{label}</div>
+                  <div className="text-[10px] font-mono text-neutral-700">{sub}</div>
+                </div>
+                <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${sel?'bg-[#c8f53a] border-[#c8f53a]':'border-white/10'}`}>
+                  {sel&&<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="#080808" strokeWidth="1.5" strokeLinecap="round"/></svg>}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <div className="mb-6">
+          <div className="flex justify-between items-baseline mb-2.5">
+            <span className="text-[10px] font-mono uppercase tracking-[1.5px] text-neutral-600">Treningi / tydzień</span>
+            <span className="font-display text-2xl font-black text-[#c8f53a]">{trainingStats.weeklyDays}<span className="text-sm font-sans font-light text-neutral-600 ml-1">dni</span></span>
+          </div>
+          <input type="range" min={1} max={7} step={1} value={trainingStats.weeklyDays}
+            onChange={e=>setTrainingStats(s=>({...s,weeklyDays:+e.target.value}))}
+            className="w-full accent-[#c8f53a]"/>
+          <div className="flex justify-between mt-1">
+            <span className="text-[9px] font-mono text-neutral-700">1 dzień</span>
+            <span className="text-[9px] font-mono text-neutral-700">7 dni</span>
+          </div>
+        </div>
+        <BtnPrimary loading={loading} onClick={handleStats}>Utwórz konto →</BtnPrimary>
+        <BtnBack onClick={()=>go('goals')}/>
       </>
     )
 
@@ -353,7 +421,11 @@ export default function AuthFlow() {
         <p className="text-[13px] text-neutral-600 mb-7">{mode==='register'?'Twój profil jest skonfigurowany. Czas progresować.':'Zalogowano pomyślnie.'}</p>
         {mode==='register'&&(
           <div className="grid grid-cols-3 gap-2 mb-6">
-            {[['0','Treningi'],['45km','Plan'],[String(goals.length),'Cele']].map(([val,lbl])=>(
+            {[
+              [String(trainingStats.weeklyDays), 'Dni/tydz'],
+              [trainingStats.level==='advanced'?'Exp':trainingStats.level==='intermediate'?'Mid':'New', 'Poziom'],
+              [String(goals.length), 'Cele'],
+            ].map(([val,lbl])=>(
               <div key={lbl} className="bg-white/[0.03] border border-white/[0.06] rounded-xl py-3.5 px-2">
                 <div className="font-display text-xl font-black text-[#c8f53a]">{val}</div>
                 <div className="text-[8px] font-mono uppercase tracking-wider text-neutral-700 mt-0.5">{lbl}</div>
