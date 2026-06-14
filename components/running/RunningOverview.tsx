@@ -4,6 +4,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AddRunModal from './AddRunModal'
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -327,6 +328,7 @@ export default function RunningOverview({
 
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('30d')
   const [typeFilter, setTypeFilter]   = useState<TypeFilter>('all')
+  const [showAddRun, setShowAddRun]   = useState(false)
 
   const filteredRuns = useMemo(() => {
     if (typeFilter === 'all') return runs
@@ -397,13 +399,20 @@ export default function RunningOverview({
                   }`}>{RANGE_LABELS[r]}</button>
               ))}
             </div>
-            <button onClick={() => router.push('/running/import')}
+            <button onClick={() => setShowAddRun(true)}
               className="ml-2 px-4 py-1.5 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none flex items-center gap-1.5">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <path d="M5.5 2v7M2 5.5h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              <span className="hidden sm:inline">Dodaj bieg</span>
+            </button>
+            <button onClick={() => router.push('/running/import')}
+              className="px-4 py-1.5 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:border-[#2e2e2e] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none flex items-center gap-1.5">
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                 <path d="M5.5 8V2M3 4.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M2 9.5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
-              <span className="hidden sm:inline">Import Garmin</span>
+              <span className="hidden sm:inline">Import</span>
             </button>
           </div>
         </div>
@@ -493,6 +502,13 @@ export default function RunningOverview({
           </div>
         </div>
       </main>
+
+      {showAddRun && (
+        <AddRunModal
+          onClose={() => setShowAddRun(false)}
+          onSaved={() => { setShowAddRun(false); router.refresh() }}
+        />
+      )}
     </div>
   )
 }

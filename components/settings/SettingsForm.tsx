@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AddWeightModal from '@/components/weight/AddWeightModal'
 
 interface FormState {
   weightKg: number
@@ -24,6 +25,7 @@ export default function SettingsForm() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [showWeightModal, setShowWeightModal] = useState(false)
 
   useEffect(() => {
     fetch('/api/profile')
@@ -111,9 +113,18 @@ export default function SettingsForm() {
           <div>
             <div className="flex justify-between items-baseline mb-2">
               <span className={label}>Waga</span>
-              <span className="font-display text-2xl font-black text-[#c8f53a]">
-                {form.weightKg} <span className="text-sm font-sans font-light text-[#555]">kg</span>
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowWeightModal(true)}
+                  className="px-3 py-1 rounded-lg bg-[#c8f53a]/10 border border-[#c8f53a]/20 text-[9px] font-mono uppercase tracking-[1.2px] text-[#c8f53a] hover:bg-[#c8f53a]/20 transition-colors"
+                >
+                  + Zaloguj pomiar
+                </button>
+                <span className="font-display text-2xl font-black text-[#c8f53a]">
+                  {form.weightKg} <span className="text-sm font-sans font-light text-[#555]">kg</span>
+                </span>
+              </div>
             </div>
             <input type="range" min={30} max={200} step={0.5}
               value={form.weightKg}
@@ -227,6 +238,17 @@ export default function SettingsForm() {
           )}
         </div>
       </div>
+
+      {showWeightModal && (
+        <AddWeightModal
+          currentWeight={form.weightKg}
+          onClose={() => setShowWeightModal(false)}
+          onSaved={kg => {
+            setForm(f => ({ ...f, weightKg: kg }))
+            setShowWeightModal(false)
+          }}
+        />
+      )}
     </div>
   )
 }

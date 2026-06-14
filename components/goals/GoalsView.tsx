@@ -2,7 +2,8 @@
 
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
+import AddGoalModal from './AddGoalModal'
 
 type KpiTone = 'purple' | 'lime' | 'orange' | 'white'
 type GoalTone = 'strength' | 'running' | 'body' | 'habit'
@@ -202,6 +203,7 @@ function animateCounter(el: HTMLElement, target: number, duration: number) {
 
 export default function GoalsView() {
   const rootRef = useRef<HTMLDivElement>(null)
+  const [showAddGoal, setShowAddGoal] = useState(false)
 
   useGSAP(() => {
     const root = rootRef.current
@@ -274,6 +276,7 @@ export default function GoalsView() {
         </div>
         <button
           type="button"
+          onClick={() => setShowAddGoal(true)}
           className="rounded-[9px] bg-[#c88cff] px-4 py-2 text-[11px] font-mono uppercase tracking-[1.3px] text-[#080808] transition-all hover:-translate-y-px hover:bg-[#d8a0ff]"
         >
           + Nowy cel
@@ -493,6 +496,12 @@ export default function GoalsView() {
           </div>
         </section>
       </div>
+      {showAddGoal && (
+        <AddGoalModal
+          onClose={() => setShowAddGoal(false)}
+          onSaved={() => setShowAddGoal(false)}
+        />
+      )}
     </div>
   )
 }

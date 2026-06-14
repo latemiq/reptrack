@@ -84,6 +84,26 @@ export default function GymPage() {
               <div className="text-[10px] font-mono text-[#666]">{t.exercises} ćwiczeń · {t.lastUsed}</div>
             </button>
           ))}
+          <button
+            onClick={() => {
+              const name = `Trening ${new Date().toLocaleDateString('pl-PL')}`
+              startWorkout(name, [], 'blank')
+              setTimeout(() => {
+                const w = useWorkoutStore.getState().activeWorkout
+                if (w) router.push(`/gym/log/${w.id}`)
+              }, 50)
+            }}
+            disabled={!!activeWorkout}
+            className="bg-[#0f0f0f] border border-dashed border-[#2a2a2a] hover:border-[#f5a03a]/25 hover:bg-[#f5a03a]/[0.02] disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl p-5 text-left transition-all hover:-translate-y-1"
+          >
+            <div className="w-8 h-8 rounded-lg border border-dashed border-[#333] flex items-center justify-center mb-3">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 2v10M2 7h10" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div className="font-display text-[16px] font-black mb-1 text-[#888]">Pusty trening</div>
+            <div className="text-[10px] font-mono text-[#444]">Zacznij od zera</div>
+          </button>
         </div>
 
         <div className="mt-8 grid grid-cols-3 gap-3">
