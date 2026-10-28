@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import WorkoutHistory from '@/components/gym/WorkoutHistory'
 import { Avatar } from '@/components/trainer/TrainerDashboard'
+import PlanList from '@/components/trainer/PlanList'
 
 interface Client {
   id: string
@@ -92,7 +93,8 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
 
       {client && (
         <>
-          <div className="px-4 md:px-7 pt-4">
+          <PlanList clientId={clientId} />
+          <div className="px-4 md:px-7 pt-6">
             <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">Historia treningów</p>
           </div>
           <WorkoutHistory endpoint={`/api/trainer/clients/${encodeURIComponent(clientId)}/workouts?limit=100`} readOnly />

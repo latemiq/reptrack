@@ -295,5 +295,148 @@ drop policy if exists "Trainer and client can view relation" on coach_clients;
 create policy "Trainer and client can view relation" on coach_clients
   for select using ((auth.jwt() ->> 'sub') in (trainer_id, client_id));
 
+-- ─── PERIODYZACJA ────────────────────────────────────────────────────────────
+-- macrocycles → mesocycles (bloki) → microcycles (tygodnie) → planned_sessions → planned_exercises
+-- Plan układa trener dla konkretnego podopiecznego. Tydzień N zaczyna się
+-- start_date + 7·(N−1), licząc tygodnie po kolei przez wszystkie mezocykle.
+-- Całe drzewo zapisuje funkcja save_macrocycle (jedna transakcja). ID węzłów
+-- nadaje klient i są zachowywane między zapisami, więc późniejsze odwołania
+-- (np. trening → planned_session_id) pozostają ważne.
+
+create table if not exists macrocycles (
+  id uuid primary key default gen_random_uuid(),
+  trainer_id text not null,
+  client_id text not null,
+  name text not null,
+  goal text,
+  start_date date not null,
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists macrocycles_trainer_client_idx on macrocycles (trainer_id, client_id, start_date desc);
+create index if not exists macrocycles_client_idx on macrocycles (client_id, start_date desc);
+
+create table if not exists mesocycles (
+  id uuid primary key default gen_random_uuid(),
+  macrocycle_id uuid not null references macrocycles(id) on delete cascade,
+  position int not null,
+  name text not null,
+  focus text check (focus in ('hypertrophy', 'strength', 'power', 'endurance', 'deload', 'other')),
+  notes text
+);
+
+create index if not exists mesocycles_macro_idx on mesocycles (macrocycle_id, position);
+
+create table if not exists microcycles (
+  id uuid primary key default gen_random_uuid(),
+  mesocycle_id uuid not null references mesocycles(id) on delete cascade,
+  position int not null,
+  notes text
+);
+
+create index if not exists microcycles_meso_idx on microcycles (mesocycle_id, position);
+
+create table if not exists planned_sessions (
+  id uuid primary key default gen_random_uuid(),
+  microcycle_id uuid not null references microcycles(id) on delete cascade,
+  position int not null,
+  day_of_week int not null check (day_of_week between 1 and 7), -- 1 = poniedziałek
+  name text not null,
+  notes text
+);
+
+create index if not exists planned_sessions_micro_idx on planned_sessions (microcycle_id, day_of_week, position);
+
+create table if not exists planned_exercises (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references planned_sessions(id) on delete cascade,
+  position int not null,
+  exercise_id text not null,
+  exercise_name text not null,
+  sets int not null default 3,
+  reps_min int,
+  reps_max int,
+  weight_kg decimal,
+  percent_1rm decimal,
+  rpe decimal,
+  rest_seconds int,
+  notes text
+);
+
+create index if not exists planned_exercises_session_idx on planned_exercises (session_id, position);
+
+-- Plany są dostępne tylko przez API (service role); RLS blokuje klucz anon.
+alter table macrocycles enable row level security;
+alter table mesocycles enable row level security;
+alter table microcycles enable row level security;
+alter table planned_sessions enable row level security;
+alter table planned_exercises enable row level security;
+drop policy if exists "Trainer and client can view macrocycles" on macrocycles;
+create policy "Trainer and client can view macrocycles" on macrocycles
+  for select using ((auth.jwt() ->> 'sub') in (trainer_id, client_id));
+
+-- p: { id, trainerId, clientId, name, goal, startDate, notes,
+--      mesocycles: [{ id, name, focus, notes,
+--        microcycles: [{ id, notes,
+--          sessions: [{ id, dayOfWeek, name, notes,
+--            exercises: [{ exerciseId, name, sets, repsMin, repsMax, weightKg, percent1rm, rpe, restSeconds, notes }] }] }] }] }
+-- Pozycje wynikają z kolejności w tablicach. Uprawnienia sprawdza API;
+-- funkcja dodatkowo odmawia nadpisania planu innego trenera/podopiecznego.
+create or replace function save_macrocycle(p jsonb) returns uuid
+language plpgsql as $$
+declare
+  macro_id uuid := (p->>'id')::uuid;
+  m record;
+  w record;
+  s record;
+begin
+  insert into macrocycles (id, trainer_id, client_id, name, goal, start_date, notes, updated_at)
+  values (macro_id, p->>'trainerId', p->>'clientId', p->>'name', nullif(p->>'goal', ''),
+          (p->>'startDate')::date, nullif(p->>'notes', ''), now())
+  on conflict (id) do update
+    set name = excluded.name, goal = excluded.goal, start_date = excluded.start_date,
+        notes = excluded.notes, updated_at = now()
+    where macrocycles.trainer_id = excluded.trainer_id and macrocycles.client_id = excluded.client_id;
+  if not found then
+    raise exception 'macrocycle % belongs to another trainer or client', macro_id;
+  end if;
+
+  delete from mesocycles where macrocycle_id = macro_id;
+
+  for m in select value as v, ordinality as pos
+           from jsonb_array_elements(coalesce(p->'mesocycles', '[]')) with ordinality loop
+    insert into mesocycles (id, macrocycle_id, position, name, focus, notes)
+    values ((m.v->>'id')::uuid, macro_id, m.pos, m.v->>'name', nullif(m.v->>'focus', ''), nullif(m.v->>'notes', ''));
+
+    for w in select value as v, ordinality as pos
+             from jsonb_array_elements(coalesce(m.v->'microcycles', '[]')) with ordinality loop
+      insert into microcycles (id, mesocycle_id, position, notes)
+      values ((w.v->>'id')::uuid, (m.v->>'id')::uuid, w.pos, nullif(w.v->>'notes', ''));
+
+      for s in select value as v, ordinality as pos
+               from jsonb_array_elements(coalesce(w.v->'sessions', '[]')) with ordinality loop
+        insert into planned_sessions (id, microcycle_id, position, day_of_week, name, notes)
+        values ((s.v->>'id')::uuid, (w.v->>'id')::uuid, s.pos, (s.v->>'dayOfWeek')::int,
+                s.v->>'name', nullif(s.v->>'notes', ''));
+
+        insert into planned_exercises (session_id, position, exercise_id, exercise_name, sets, reps_min, reps_max,
+                                       weight_kg, percent_1rm, rpe, rest_seconds, notes)
+        select (s.v->>'id')::uuid, e.ordinality, e.value->>'exerciseId', e.value->>'name',
+               (e.value->>'sets')::int, (e.value->>'repsMin')::int, (e.value->>'repsMax')::int,
+               (e.value->>'weightKg')::decimal, (e.value->>'percent1rm')::decimal, (e.value->>'rpe')::decimal,
+               (e.value->>'restSeconds')::int, nullif(e.value->>'notes', '')
+        from jsonb_array_elements(coalesce(s.v->'exercises', '[]')) with ordinality e;
+      end loop;
+    end loop;
+  end loop;
+
+  return macro_id;
+end;
+$$;
+
+revoke execute on function save_macrocycle(jsonb) from public, anon, authenticated;
+
 -- ─── STORAGE (opcjonalnie) ───────────────────────────────────────────────────
 -- insert into storage.buckets (id, name, public) values ('screenshots', 'screenshots', false);
