@@ -260,6 +260,11 @@ export default function PlanEditor({ clientId, planId }: Props) {
               </div>
             </div>
 
+            <p className="text-[11px] text-[#666]">
+              Kliknij <span className="text-[#c8f53a]">+ Sesja</span> w wybranym dniu tygodnia, żeby dodać trening, a potem dodaj do niego ćwiczenia.
+              „Kopiuj” przy tygodniu powiela cały tydzień.
+            </p>
+
             {/* Week × day grid */}
             <div className="overflow-x-auto -mx-1 px-1">
               <div className="min-w-[860px]">
@@ -304,8 +309,12 @@ export default function PlanEditor({ clientId, planId }: Props) {
                                 </button>
                               ))}
                               <button onClick={() => addSession(w.id, day)}
-                                className="mt-auto rounded-lg text-[14px] leading-none py-1 text-[#2a2a2a] group-hover:text-[#666] hover:!text-[#c8f53a] hover:bg-white/[0.02] cursor-pointer"
-                                aria-label={`Dodaj sesję: tydzień ${globalIdx + 1}, ${DAY_LABELS[di]}`}>+</button>
+                                className={`mt-auto rounded-lg leading-none cursor-pointer transition-colors hover:text-[#c8f53a] hover:border-[#c8f53a]/40 hover:bg-[#c8f53a]/[0.04] ${
+                                  sessions.length === 0
+                                    ? 'flex-1 min-h-[60px] border border-dashed border-[#262626] text-[10px] font-mono uppercase tracking-[1px] text-[#555]'
+                                    : 'py-1 text-[13px] text-[#555] border border-transparent'
+                                }`}
+                                aria-label={`Dodaj sesję: tydzień ${globalIdx + 1}, ${DAY_LABELS[di]}`}>{sessions.length === 0 ? '+ Sesja' : '+'}</button>
                             </div>
                           )
                         })}
