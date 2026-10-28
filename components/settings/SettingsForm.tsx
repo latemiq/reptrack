@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AddWeightModal from '@/components/weight/AddWeightModal'
+import TrainerSection from '@/components/settings/TrainerSection'
 
 interface FormState {
   weightKg: number
@@ -264,6 +265,8 @@ export default function SettingsForm() {
             <span className="text-red-400 text-[12px] font-mono">Błąd zapisu</span>
           )}
         </div>
+
+        <TrainerSection />
       </div>
 
       {showWeightModal && (

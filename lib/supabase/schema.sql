@@ -29,6 +29,10 @@ alter table profiles add column if not exists weekly_days  int;
 alter table profiles add column if not exists weekly_km_goal decimal;
 alter table profiles add column if not exists onboarded_at timestamptz;
 alter table profiles add column if not exists updated_at   timestamptz default now();
+-- 'athlete' loguje treningi; 'trainer' dodatkowo ma panel /trainer z podopiecznymi.
+alter table profiles add column if not exists role         text not null default 'athlete';
+alter table profiles drop constraint if exists profiles_role_check;
+alter table profiles add constraint profiles_role_check check (role in ('athlete', 'trainer'));
 
 alter table profiles enable row level security;
 drop policy if exists "Users can view own profile" on profiles;
@@ -263,6 +267,33 @@ drop policy if exists "Users can manage own messages" on coach_messages;
 create policy "Users can manage own messages" on coach_messages
   for all using ((auth.jwt() ->> 'sub') = user_id)
   with check ((auth.jwt() ->> 'sub') = user_id);
+
+-- ─── TRAINER ↔ CLIENTS ───────────────────────────────────────────────────────
+-- Trener tworzy zaproszenie (status 'pending', client_id null, invite_code).
+-- Podopieczny wpisuje kod → client_id ustawione, status 'active'.
+-- Zakończenie współpracy przez którąkolwiek stronę → status 'ended'.
+
+create table if not exists coach_clients (
+  id uuid primary key default gen_random_uuid(),
+  trainer_id text not null,
+  client_id text,
+  invite_code text not null unique,
+  status text not null default 'pending' check (status in ('pending', 'active', 'ended')),
+  expires_at timestamptz not null default (now() + interval '7 days'),
+  created_at timestamptz default now(),
+  accepted_at timestamptz,
+  ended_at timestamptz
+);
+
+create index if not exists coach_clients_trainer_idx on coach_clients (trainer_id, status);
+create index if not exists coach_clients_client_idx  on coach_clients (client_id, status);
+create unique index if not exists coach_clients_active_pair_idx
+  on coach_clients (trainer_id, client_id) where status = 'active';
+
+alter table coach_clients enable row level security;
+drop policy if exists "Trainer and client can view relation" on coach_clients;
+create policy "Trainer and client can view relation" on coach_clients
+  for select using ((auth.jwt() ->> 'sub') in (trainer_id, client_id));
 
 -- ─── STORAGE (opcjonalnie) ───────────────────────────────────────────────────
 -- insert into storage.buckets (id, name, public) values ('screenshots', 'screenshots', false);

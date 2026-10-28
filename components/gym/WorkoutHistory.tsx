@@ -34,14 +34,21 @@ function groupSets(sets: SetRow[]) {
   return Array.from(groups.values())
 }
 
-export default function WorkoutHistory() {
+interface WorkoutHistoryProps {
+  /** Source of workouts; defaults to the signed-in user's own history. */
+  endpoint?: string
+  /** Hides delete actions and own header — used in the trainer's client view. */
+  readOnly?: boolean
+}
+
+export default function WorkoutHistory({ endpoint = '/api/gym/workouts?limit=100', readOnly = false }: WorkoutHistoryProps = {}) {
   const router = useRouter()
   const [workouts, setWorkouts] = useState<WorkoutRow[] | null>(null)
   const [error, setError] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/gym/workouts?limit=100')
+    fetch(endpoint)
       .then(async res => {
         if (!res.ok) throw new Error()
         return res.json()
@@ -51,7 +58,7 @@ export default function WorkoutHistory() {
         setOpenId(d.workouts[0]?.id ?? null)
       })
       .catch(() => { setWorkouts([]); setError('Nie udało się wczytać historii. Sprawdź połączenie z bazą.') })
-  }, [])
+  }, [endpoint])
 
   const summary = useMemo(() => {
     const list = workouts ?? []
@@ -73,10 +80,10 @@ export default function WorkoutHistory() {
 
   return (
     <div className="min-h-full bg-[#080808] text-[#f0ece4]">
-      <div className="px-4 md:px-7 pt-5 md:pt-6 pb-2">
+      {!readOnly && <div className="px-4 md:px-7 pt-5 md:pt-6 pb-2">
         <button onClick={() => router.push('/gym')} className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1 hover:text-[#f5a03a]">← Siłownia</button>
         <h1 className="font-display text-[24px] font-black">Historia <em className="not-italic text-[#f5a03a]">treningów</em></h1>
-      </div>
+      </div>}
 
       <div className="px-4 md:px-7 pb-7 pt-3 space-y-3">
         {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
@@ -98,7 +105,7 @@ export default function WorkoutHistory() {
 
         {workouts?.length === 0 && !error && (
           <div className="text-center py-16 text-[13px] text-[#555]">
-            Brak ukończonych treningów. <button onClick={() => router.push('/gym')} className="text-[#f5a03a] hover:underline">Zacznij pierwszy</button>.
+            Brak ukończonych treningów.{!readOnly && <> <button onClick={() => router.push('/gym')} className="text-[#f5a03a] hover:underline">Zacznij pierwszy</button>.</>}
           </div>
         )}
 
@@ -141,9 +148,11 @@ export default function WorkoutHistory() {
                     ))}
                   </div>
                   {w.notes && <p className="mt-3 text-[12px] text-[#888] whitespace-pre-wrap">{w.notes}</p>}
-                  <div className="mt-3 flex justify-end">
-                    <button onClick={() => handleDelete(w.id)} className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#555] hover:text-red-400 transition-colors">Usuń trening</button>
-                  </div>
+                  {!readOnly && (
+                    <div className="mt-3 flex justify-end">
+                      <button onClick={() => handleDelete(w.id)} className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#555] hover:text-red-400 transition-colors">Usuń trening</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

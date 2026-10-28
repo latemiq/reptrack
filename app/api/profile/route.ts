@@ -12,7 +12,7 @@ export async function GET() {
   const [{ data }, { data: lastLog }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, age, height_cm, weight_kg, location, level, bio, weekly_days, weekly_km_goal, onboarded_at, created_at')
+      .select('id, age, height_cm, weight_kg, location, level, bio, weekly_days, weekly_km_goal, role, onboarded_at, created_at')
       .eq('id', userId)
       .maybeSingle(),
     supabase
@@ -36,6 +36,7 @@ export async function GET() {
       bio:          data.bio,
       weeklyDays:   data.weekly_days,
       weeklyKmGoal: data.weekly_km_goal != null ? Number(data.weekly_km_goal) : null,
+      role:         data.role === 'trainer' ? 'trainer' : 'athlete',
       onboarded:    Boolean(data.onboarded_at),
     },
   })
@@ -54,6 +55,13 @@ export async function PATCH(req: Request) {
   const ALLOWED = ['age', 'height_cm', 'weight_kg', 'location', 'level', 'bio', 'weekly_days', 'weekly_km_goal']
   for (const key of ALLOWED) {
     if (key in body) updates[key] = body[key]
+  }
+
+  if ('role' in body) {
+    if (body.role !== 'athlete' && body.role !== 'trainer') {
+      return NextResponse.json({ error: 'Nieprawidłowa rola' }, { status: 400 })
+    }
+    updates.role = body.role
   }
 
   if (Object.keys(updates).length === 0) {

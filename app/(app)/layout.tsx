@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
@@ -98,7 +98,20 @@ const ACCOUNT_ITEMS = [
   },
 ]
 
-const ALL_NAV = [...NAV_ITEMS, ...ACCOUNT_ITEMS]
+// Shown only for role = 'trainer' (desktop sidebar — trainers work on a computer).
+const TRAINER_ITEM = {
+  href: '/trainer',
+  label: 'Podopieczni',
+  icon: (
+    <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+      <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="14" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 16c0-2.76 2.24-5 5-5s5 2.24 5 5M12.5 12.2c.47-.13.97-.2 1.5-.2 2.21 0 4 1.79 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+}
+
+const ALL_NAV = [...NAV_ITEMS, TRAINER_ITEM, ...ACCOUNT_ITEMS]
 
 function isActiveRoute(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`)
@@ -113,6 +126,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const fetchNotifications = useNotificationsStore(s => s.fetchNotifications)
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications, pathname])
+
+  const [isTrainer, setIsTrainer] = useState(false)
+  useEffect(() => {
+    const loadRole = () =>
+      fetch('/api/profile')
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => setIsTrainer(d?.profile?.role === 'trainer'))
+        .catch(() => {})
+    loadRole()
+    window.addEventListener('reptrack:role-changed', loadRole)
+    return () => window.removeEventListener('reptrack:role-changed', loadRole)
+  }, [])
+  const sidebarItems = isTrainer ? [NAV_ITEMS[0], TRAINER_ITEM, ...NAV_ITEMS.slice(1)] : NAV_ITEMS
   const activeNavItem = ALL_NAV.find((item) => isActiveRoute(pathname, item.href))
 
   const userInitials = user
@@ -134,7 +160,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
+          {sidebarItems.map((item) => {
             const active = isActiveRoute(pathname, item.href)
             return (
               <Link key={item.href} href={item.href}
