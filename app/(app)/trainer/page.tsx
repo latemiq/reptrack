@@ -1,9 +1,9 @@
-import TrainerDashboard from '@/components/trainer/TrainerDashboard'
+import TrainerOverview from '@/components/trainer/TrainerOverview'
 
 export const metadata = {
-  title: 'RepTrack — Podopieczni',
+  title: 'RepTrack — Pulpit trenera',
 }
 
 export default function TrainerPage() {
-  return <TrainerDashboard />
+  return <TrainerOverview />
 }

@@ -52,3 +52,23 @@ export function toPersonSummary(p: { id: string; first_name?: string | null; las
 }
 
 export const PERSON_COLUMNS = 'id, first_name, last_name, username, email, image_url'
+
+/** Active clients of a trainer with display info. */
+export async function getActiveClients(trainerId: string): Promise<(PersonSummary & { since: string | null })[]> {
+  const supabase = supabaseAdmin()
+  const { data: relations } = await supabase
+    .from('coach_clients')
+    .select('client_id, accepted_at')
+    .eq('trainer_id', trainerId)
+    .eq('status', 'active')
+  const ids = (relations ?? []).map(r => r.client_id as string).filter(Boolean)
+  if (ids.length === 0) return []
+  const { data: profiles } = await supabase.from('profiles').select(PERSON_COLUMNS).in('id', ids)
+  return (relations ?? []).map(r => {
+    const p = profiles?.find(x => x.id === r.client_id)
+    return {
+      ...(p ? toPersonSummary(p) : { id: r.client_id as string, name: 'Bez nazwy', email: null, imageUrl: null }),
+      since: r.accepted_at,
+    }
+  })
+}

@@ -44,7 +44,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
   const endCooperation = async () => {
     if (!client || !confirm(`Zakończyć współpracę z: ${client.name}? Stracisz podgląd jego treningów.`)) return
     const res = await fetch(`/api/trainer/clients/${encodeURIComponent(clientId)}`, { method: 'DELETE' }).catch(() => null)
-    if (res?.ok) router.push('/trainer')
+    if (res?.ok) router.push('/trainer/clients')
     else setError('Nie udało się zakończyć współpracy.')
   }
 
@@ -59,7 +59,7 @@ export default function ClientDetail({ clientId }: { clientId: string }) {
   return (
     <div className="min-h-full bg-[#080808] text-[#f0ece4]">
       <div className="px-4 md:px-7 pt-5 md:pt-6 pb-2">
-        <button onClick={() => router.push('/trainer')} className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-2 hover:text-[#c8f53a]">← Podopieczni</button>
+        <button onClick={() => router.push('/trainer/clients')} className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-2 hover:text-[#c8f53a]">← Podopieczni</button>
 
         {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
 

@@ -98,23 +98,56 @@ const ACCOUNT_ITEMS = [
   },
 ]
 
-// Shown only for role = 'trainer' (desktop sidebar — trainers work on a computer).
-const TRAINER_ITEM = {
-  href: '/trainer',
-  label: 'Podopieczni',
-  icon: (
-    <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
-      <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="14" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M2 16c0-2.76 2.24-5 5-5s5 2.24 5 5M12.5 12.2c.47-.13.97-.2 1.5-.2 2.21 0 4 1.79 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  ),
+interface NavItem {
+  href: string
+  label: string
+  icon: React.ReactNode
+  /** Custom active check; defaults to href prefix match. */
+  match?: (pathname: string) => boolean
 }
 
-const ALL_NAV = [...NAV_ITEMS, TRAINER_ITEM, ...ACCOUNT_ITEMS]
+const isPlanRoute = (p: string) => p.startsWith('/trainer/plans') || /^\/trainer\/[^/]+\/plans(\/|$)/.test(p)
 
-function isActiveRoute(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`)
+// role = 'trainer' gets a separate app: stats, clients and planning — no own workouts.
+const TRAINER_NAV: NavItem[] = [
+  {
+    href: '/trainer',
+    label: 'Pulpit',
+    match: p => p === '/trainer',
+    icon: NAV_ITEMS[0].icon,
+  },
+  {
+    href: '/trainer/clients',
+    label: 'Podopieczni',
+    match: p => p.startsWith('/trainer/') && !isPlanRoute(p),
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+        <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="14" cy="8" r="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M2 16c0-2.76 2.24-5 5-5s5 2.24 5 5M12.5 12.2c.47-.13.97-.2 1.5-.2 2.21 0 4 1.79 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    href: '/trainer/plans',
+    label: 'Plany',
+    match: isPlanRoute,
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+        <rect x="2.5" y="3.5" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M2.5 7.5h15M6.5 2v3M13.5 2v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M6 11h3M6 14h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+]
+const TRAINER_ACCOUNT: NavItem[] = ACCOUNT_ITEMS.filter(i => i.href === '/settings')
+
+/** Paths a trainer may open; anything else redirects to the trainer home. */
+const isTrainerAllowed = (p: string) => p === '/trainer' || p.startsWith('/trainer/') || p.startsWith('/settings')
+
+function isActive(pathname: string, item: NavItem) {
+  return item.match ? item.match(pathname) : pathname === item.href || pathname.startsWith(`${item.href}/`)
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -127,19 +160,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications, pathname])
 
-  const [isTrainer, setIsTrainer] = useState(false)
+  // null until loaded, so a trainer never sees the athlete menu flash.
+  const [role, setRole] = useState<'athlete' | 'trainer' | null>(null)
   useEffect(() => {
     const loadRole = () =>
       fetch('/api/profile')
         .then(r => (r.ok ? r.json() : null))
-        .then(d => setIsTrainer(d?.profile?.role === 'trainer'))
-        .catch(() => {})
+        .then(d => setRole(d?.profile?.role === 'trainer' ? 'trainer' : 'athlete'))
+        .catch(() => setRole('athlete'))
     loadRole()
     window.addEventListener('reptrack:role-changed', loadRole)
     return () => window.removeEventListener('reptrack:role-changed', loadRole)
   }, [])
-  const sidebarItems = isTrainer ? [NAV_ITEMS[0], TRAINER_ITEM, ...NAV_ITEMS.slice(1)] : NAV_ITEMS
-  const activeNavItem = ALL_NAV.find((item) => isActiveRoute(pathname, item.href))
+  const isTrainer = role === 'trainer'
+
+  useEffect(() => {
+    if (isTrainer && !isTrainerAllowed(pathname)) router.replace('/trainer')
+  }, [isTrainer, pathname, router])
+
+  const sidebarItems: NavItem[] = role === null ? [] : isTrainer ? TRAINER_NAV : NAV_ITEMS
+  const accountItems: NavItem[] = role === null ? [] : isTrainer ? TRAINER_ACCOUNT : ACCOUNT_ITEMS
+  const mobileItems: NavItem[] = role === null ? []
+    : isTrainer ? [...TRAINER_NAV, ...TRAINER_ACCOUNT]
+    : [...NAV_ITEMS.filter(i => i.href !== '/notifications'), ACCOUNT_ITEMS[0]]
+  const profileHref = isTrainer ? '/settings' : '/profile'
+  const activeNavItem = [...sidebarItems, ...accountItems].find(item => isActive(pathname, item))
 
   const userInitials = user
     ? (`${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`).toUpperCase() ||
@@ -161,7 +206,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
           {sidebarItems.map((item) => {
-            const active = isActiveRoute(pathname, item.href)
+            const active = isActive(pathname, item)
             return (
               <Link key={item.href} href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-dm-sans text-sm transition-all ${
@@ -188,8 +233,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         <div className="mt-auto border-t border-[#1e1e1e] px-3 pt-3 pb-4 flex flex-col gap-1">
           <p className="px-3 pb-1 text-[9px] font-dm-mono text-[#2a2a2a] uppercase tracking-[2px]">Konto</p>
-          {ACCOUNT_ITEMS.map((item) => {
-            const active = isActiveRoute(pathname, item.href)
+          {accountItems.map((item) => {
+            const active = isActive(pathname, item)
             return (
               <Link key={item.href} href={item.href}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg font-dm-sans text-sm transition-all ${
@@ -201,7 +246,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             )
           })}
-          <Link href="/profile"
+          <Link href={profileHref}
             className="mt-1 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#c8f53a]/[0.05] border border-[#c8f53a]/15 hover:border-[#c8f53a]/25 transition-colors">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#c8f53a] to-[#7ef5b0] flex items-center justify-center text-[#080808] font-bold text-[10px] flex-shrink-0 overflow-hidden">
               {user?.imageUrl
@@ -234,14 +279,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="hidden lg:flex items-center justify-between px-8 py-4 border-b border-[#1e1e1e] bg-[#0f0f0f] shrink-0">
           <div>
             <h1 className="font-syne font-bold text-[#f0ece4] text-base">
-              {activeNavItem?.label ?? 'RepTrack'}
+              {isTrainer && <span className="text-[#555] font-normal">Trener · </span>}{activeNavItem?.label ?? 'RepTrack'}
             </h1>
           </div>
           <div className="flex items-center gap-3">
             <span className="font-dm-mono text-[11px] text-[#555]">
               {new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}
             </span>
-            <Link href="/profile" className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center overflow-hidden hover:border-[#333] transition-colors">
+            <Link href={profileHref} className="w-8 h-8 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center overflow-hidden hover:border-[#333] transition-colors">
               {user?.imageUrl
                 ? <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
                 : <span className="text-[#c8f53a] text-xs font-syne font-bold">{userInitials}</span>}
@@ -257,8 +302,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-bottom">
-        {[...NAV_ITEMS.filter(i => i.href !== '/notifications'), ACCOUNT_ITEMS[0]].map((item) => {
-          const active = isActiveRoute(pathname, item.href)
+        {mobileItems.map((item) => {
+          const active = isActive(pathname, item)
           return (
             <Link key={item.href} href={item.href}
               className={`flex flex-col items-center justify-center gap-1 min-w-[44px] min-h-[44px] px-3 py-2 rounded-xl transition-all ${

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { relativeDay } from '@/lib/stats'
+import InviteQrModal from '@/components/trainer/InviteQrModal'
+import BecomeTrainer from '@/components/trainer/BecomeTrainer'
 
 interface ClientRow {
   relationId: string
@@ -43,6 +45,7 @@ export default function TrainerDashboard() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [qrInvite, setQrInvite] = useState<InviteRow | null>(null)
 
   const load = useCallback(async () => {
     setError('')
@@ -57,18 +60,6 @@ export default function TrainerDashboard() {
 
   useEffect(() => { load() }, [load])
 
-  const becomeTrainer = async () => {
-    setBusy(true)
-    const res = await fetch('/api/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: 'trainer' }),
-    }).catch(() => null)
-    setBusy(false)
-    if (res?.ok) { window.dispatchEvent(new Event('reptrack:role-changed')); load() }
-    else setError('Nie udało się włączyć trybu trenera.')
-  }
-
   const createInvite = async () => {
     setBusy(true)
     const res = await fetch('/api/trainer/invites', { method: 'POST' }).catch(() => null)
@@ -76,6 +67,7 @@ export default function TrainerDashboard() {
     if (!res?.ok) { setError('Nie udało się utworzyć zaproszenia.'); return }
     const { invite } = await res.json()
     setInvites(list => [invite, ...list])
+    setQrInvite(invite)
   }
 
   const cancelInvite = async (id: string) => {
@@ -89,23 +81,7 @@ export default function TrainerDashboard() {
     setTimeout(() => setCopied(null), 1500)
   }
 
-  if (notTrainer) {
-    return (
-      <div className="min-h-full bg-[#080808] text-[#f0ece4] px-4 md:px-7 py-10 flex justify-center">
-        <div className="max-w-md w-full bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-6 text-center space-y-4">
-          <h1 className="font-display text-[22px] font-black">Panel <em className="not-italic text-[#c8f53a]">trenera</em></h1>
-          <p className="text-[13px] text-[#888]">
-            Włącz tryb trenera, żeby zapraszać podopiecznych i podglądać ich treningi: ćwiczenia, serie, powtórzenia i ciężary.
-          </p>
-          {error && <p className="text-[12px] text-red-400">{error}</p>}
-          <button onClick={becomeTrainer} disabled={busy}
-            className="w-full py-3 rounded-xl text-[12px] font-mono uppercase tracking-[1.5px] bg-[#c8f53a] text-[#080808] hover:bg-[#d8ff4a] disabled:opacity-50 transition-all cursor-pointer">
-            {busy ? 'Włączam…' : 'Jestem trenerem'}
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (notTrainer) return <BecomeTrainer onDone={load} />
 
   const totalWorkouts = (clients ?? []).reduce((s, c) => s + c.workouts30d, 0)
   const inactive = (clients ?? []).filter(c => !c.lastWorkout || daysSince(c.lastWorkout.startedAt) >= 7).length
@@ -142,7 +118,7 @@ export default function TrainerDashboard() {
         {invites.length > 0 && (
           <div className="bg-[#0f0f0f] border border-[#c8f53a]/15 rounded-2xl p-4 space-y-2">
             <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">Aktywne zaproszenia</p>
-            <p className="text-[11px] text-[#666]">Podopieczny wpisuje kod w aplikacji: Ustawienia → Trener.</p>
+            <p className="text-[11px] text-[#666]">Podopieczny skanuje kod QR telefonem albo wpisuje kod w Ustawieniach → Trener.</p>
             {invites.map(inv => (
               <div key={inv.id} className="flex items-center gap-3 bg-[#131313] border border-[#1c1c1c] rounded-xl px-3 py-2.5">
                 <span className="font-mono text-[18px] tracking-[4px] text-[#f0ece4]">{inv.code}</span>
@@ -150,6 +126,9 @@ export default function TrainerDashboard() {
                   ważny do {new Date(inv.expiresAt).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' })}
                 </span>
                 <div className="ml-auto flex gap-3">
+                  <button onClick={() => setQrInvite(inv)} className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#c8f53a] hover:underline cursor-pointer">
+                    QR
+                  </button>
                   <button onClick={() => copyCode(inv.code)} className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#c8f53a] hover:underline cursor-pointer">
                     {copied === inv.code ? 'Skopiowano' : 'Kopiuj'}
                   </button>
@@ -195,6 +174,8 @@ export default function TrainerDashboard() {
           })}
         </div>
       </div>
+
+      {qrInvite && <InviteQrModal code={qrInvite.code} expiresAt={qrInvite.expiresAt} onClose={() => setQrInvite(null)} />}
     </div>
   )
 }

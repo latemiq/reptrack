@@ -29,6 +29,8 @@ export default function SettingsForm() {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
   const [showWeightModal, setShowWeightModal] = useState(false)
+  // Trainers have no own training data — only general info and trainer settings.
+  const [isTrainer, setIsTrainer] = useState(false)
 
   useEffect(() => {
     fetch('/api/profile')
@@ -36,6 +38,7 @@ export default function SettingsForm() {
       .then(data => {
         if (data.profile) {
           const p = data.profile
+          setIsTrainer(p.role === 'trainer')
           setForm({
             weightKg: p.weightKg ?? 78,
             heightCm: p.heightCm ?? 178,
@@ -59,7 +62,10 @@ export default function SettingsForm() {
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(isTrainer ? {
+          location: form.location || null,
+          bio:      form.bio || null,
+        } : {
           weight_kg: form.weightKg,
           height_cm: form.heightCm,
           age:       form.age === '' ? null : Number(form.age),
@@ -113,6 +119,7 @@ export default function SettingsForm() {
 
       <div className="px-4 md:px-7 py-6 max-w-2xl space-y-4">
 
+        {!isTrainer && <>
         {/* Body metrics */}
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5 md:p-6 space-y-5">
           <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">Dane ciała</p>
@@ -221,6 +228,8 @@ export default function SettingsForm() {
           </div>
         </div>
 
+        </>}
+
         {/* Personal info */}
         <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5 md:p-6 space-y-4">
           <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">Informacje</p>
@@ -266,7 +275,7 @@ export default function SettingsForm() {
           )}
         </div>
 
-        <TrainerSection />
+        <TrainerSection onRoleChange={role => setIsTrainer(role === 'trainer')} />
       </div>
 
       {showWeightModal && (

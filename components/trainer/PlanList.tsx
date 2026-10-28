@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { focusMeta, weekStart, type MacrocycleSummary } from '@/lib/plans'
+import { currentWeekIndex, focusMeta, weekStart, type MacrocycleSummary } from '@/lib/plans'
 
 const fmt = (d: Date) => d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: '2-digit' })
 
@@ -33,42 +33,53 @@ export default function PlanList({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {plans?.map(p => {
-        const start = weekStart(p.startDate, 0)
-        const end = new Date(weekStart(p.startDate, p.weeks).getTime() - 86400000)
-        const weekNow = Math.floor((Date.now() - start.getTime()) / (7 * 86400000))
-        const running = weekNow >= 0 && weekNow < p.weeks
-        return (
-          <Link key={p.id} href={`${base}/${p.id}`}
-            className="block bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#c8f53a]/25 rounded-2xl p-4 transition-colors">
-            <div className="flex items-baseline gap-3 mb-2.5">
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-medium text-[#ddd] truncate">{p.name}</div>
-                <div className="text-[10px] font-mono text-[#555] truncate">
-                  {fmt(start)} – {fmt(end)} · {p.weeks} tyg.{p.goal ? ` · ${p.goal}` : ''}
-                </div>
-              </div>
-              <span className={`text-[9px] font-mono uppercase tracking-[1.3px] flex-shrink-0 ${running ? 'text-[#c8f53a]' : 'text-[#444]'}`}>
-                {running ? `Tydzień ${weekNow + 1}/${p.weeks}` : weekNow < 0 ? 'Zaplanowany' : 'Zakończony'}
-              </span>
-            </div>
-            <div className="relative flex gap-0.5 h-6">
-              {p.mesocycles.map((m, i) => {
-                const f = focusMeta(m.focus)
-                return (
-                  <div key={i} style={{ flexGrow: Math.max(m.weeks, 1), background: `${f.color}26`, borderColor: `${f.color}55` }}
-                    className="basis-0 rounded-md border px-1.5 flex items-center overflow-hidden" title={`${m.name} · ${f.label} · ${m.weeks} tyg.`}>
-                    <span className="text-[9px] font-mono truncate" style={{ color: f.color }}>{m.name}</span>
-                  </div>
-                )
-              })}
-              {running && p.weeks > 0 && (
-                <div className="absolute -top-1 -bottom-1 w-0.5 bg-[#f0ece4] rounded" style={{ left: `${((weekNow + 0.5) / p.weeks) * 100}%` }} />
-              )}
-            </div>
-          </Link>
-        )
-      })}
+      {plans?.map(p => <PlanCard key={p.id} plan={p} href={`${base}/${p.id}`} />)}
     </div>
+  )
+}
+
+export type PlanStatus = 'running' | 'planned' | 'finished'
+
+export function planStatus(p: Pick<MacrocycleSummary, 'startDate' | 'weeks'>): PlanStatus {
+  const w = currentWeekIndex(p.startDate)
+  return w < 0 ? 'planned' : w < p.weeks ? 'running' : 'finished'
+}
+
+/** Macrocycle card: dates, status and a block timeline with a "now" marker. */
+export function PlanCard({ plan: p, href, subtitle }: { plan: MacrocycleSummary; href: string; subtitle?: string }) {
+  const start = weekStart(p.startDate, 0)
+  const end = new Date(weekStart(p.startDate, p.weeks).getTime() - 86400000)
+  const weekNow = currentWeekIndex(p.startDate)
+  const status = planStatus(p)
+  return (
+    <Link href={href}
+      className="block bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#c8f53a]/25 rounded-2xl p-4 transition-colors">
+      <div className="flex items-baseline gap-3 mb-2.5">
+        <div className="flex-1 min-w-0">
+          {subtitle && <div className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#c8f53a] truncate">{subtitle}</div>}
+          <div className="text-[13px] font-medium text-[#ddd] truncate">{p.name}</div>
+          <div className="text-[10px] font-mono text-[#555] truncate">
+            {fmt(start)} – {fmt(end)} · {p.weeks} tyg.{p.goal ? ` · ${p.goal}` : ''}
+          </div>
+        </div>
+        <span className={`text-[9px] font-mono uppercase tracking-[1.3px] flex-shrink-0 ${status === 'running' ? 'text-[#c8f53a]' : 'text-[#444]'}`}>
+          {status === 'running' ? `Tydzień ${weekNow + 1}/${p.weeks}` : status === 'planned' ? 'Zaplanowany' : 'Zakończony'}
+        </span>
+      </div>
+      <div className="relative flex gap-0.5 h-6">
+        {p.mesocycles.map((m, i) => {
+          const f = focusMeta(m.focus)
+          return (
+            <div key={i} style={{ flexGrow: Math.max(m.weeks, 1), background: `${f.color}26`, borderColor: `${f.color}55` }}
+              className="basis-0 rounded-md border px-1.5 flex items-center overflow-hidden" title={`${m.name} · ${f.label} · ${m.weeks} tyg.`}>
+              <span className="text-[9px] font-mono truncate" style={{ color: f.color }}>{m.name}</span>
+            </div>
+          )
+        })}
+        {status === 'running' && p.weeks > 0 && (
+          <div className="absolute -top-1 -bottom-1 w-0.5 bg-[#f0ece4] rounded" style={{ left: `${((weekNow + 0.5) / p.weeks) * 100}%` }} />
+        )}
+      </div>
+    </Link>
   )
 }

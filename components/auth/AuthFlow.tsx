@@ -3,8 +3,9 @@
 import { useSignUp, useSignIn, useClerk } from '@clerk/nextjs'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { fetchInvitePreview, redeemInvite } from '@/lib/invites'
 
 type Mode = 'choose' | 'login' | 'register'
 type Step = 'email' | 'password' | 'verify' | 'profile' | 'goals' | 'stats' | 'success'
@@ -77,7 +78,8 @@ const BG_MAP: Record<string, number> = {
   choose:0, email:1, password:2, verify:2, profile:3, goals:4, stats:4, success:5
 }
 
-export default function AuthFlow() {
+/** invite: trainer invite code from a scanned QR (/join/[code] → /auth?invite=CODE). */
+export default function AuthFlow({ invite = null }: { invite?: string | null }) {
   const router = useRouter()
   const { signUp, isLoaded: upLoaded } = useSignUp()
   const { signIn, isLoaded: inLoaded } = useSignIn()
@@ -94,6 +96,15 @@ export default function AuthFlow() {
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [inviteTrainer, setInviteTrainer] = useState<string | null>(null)
+  const [inviteJoined, setInviteJoined] = useState(false)
+
+  useEffect(() => {
+    if (!invite) return
+    fetchInvitePreview(invite).then(p => {
+      if (p.valid) setInviteTrainer(p.trainer?.name ?? 'Twój trener')
+    })
+  }, [invite])
 
   const cardRef = useRef<HTMLDivElement>(null)
   const bgRef0 = useRef<HTMLDivElement>(null)
@@ -206,6 +217,10 @@ export default function AuthFlow() {
           }),
         })
       } catch { /* best-effort — don't block the user */ }
+      if (invite && inviteTrainer) {
+        const joined = await redeemInvite(invite)
+        setInviteJoined(joined.ok)
+      }
       go('success')
       setTimeout(navigateToDashboard, 1500)
     } catch (e: unknown) {
@@ -234,7 +249,13 @@ export default function AuthFlow() {
 
       if (res.status === 'complete') {
         await setActive({ session: res.createdSessionId })
-        router.push('/dashboard')
+        if (invite && inviteTrainer) {
+          const joined = await redeemInvite(invite)
+          // On failure the join page explains why (expired, already used, …).
+          router.push(joined.ok ? '/dashboard' : `/join/${invite}`)
+        } else {
+          router.push('/dashboard')
+        }
       } else if (res.status === 'needs_second_factor') {
         setError('Wymagana weryfikacja dwuetapowa (2FA) — skonfiguruj ją w ustawieniach konta')
       } else {
@@ -250,8 +271,18 @@ export default function AuthFlow() {
     if (mode === 'choose') return (
       <>
         <div className="text-center mb-7">
-          <h1 className="font-display text-2xl font-black text-[#f0ece4] leading-tight mb-2">Witaj w <em className="not-italic text-[#c8f53a]">RepTrack</em></h1>
-          <p className="text-[13px] text-neutral-600">Wybierz jak chcesz zacząć</p>
+          {inviteTrainer ? (
+            <>
+              <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#c8f53a] mb-2">Zaproszenie od trenera</p>
+              <h1 className="font-display text-2xl font-black text-[#f0ece4] leading-tight mb-2">{inviteTrainer} zaprasza Cię do <em className="not-italic text-[#c8f53a]">RepTrack</em></h1>
+              <p className="text-[13px] text-neutral-600">Załóż konto i wypełnij krótką ankietę — trener od razu zobaczy Twój profil.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="font-display text-2xl font-black text-[#f0ece4] leading-tight mb-2">Witaj w <em className="not-italic text-[#c8f53a]">RepTrack</em></h1>
+              <p className="text-[13px] text-neutral-600">Wybierz jak chcesz zacząć</p>
+            </>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -419,6 +450,9 @@ export default function AuthFlow() {
         </div>
         <h2 className="font-display text-3xl font-black text-[#f0ece4] mb-2">{mode==='register'?'Konto gotowe!':'Witaj z powrotem!'}</h2>
         <p className="text-[13px] text-neutral-600 mb-7">{mode==='register'?'Twój profil jest skonfigurowany. Czas progresować.':'Zalogowano pomyślnie.'}</p>
+        {inviteJoined && inviteTrainer && (
+          <p className="-mt-4 mb-6 text-[12px] text-[#c8f53a]">Dołączono do trenera: {inviteTrainer}</p>
+        )}
         {mode==='register'&&(
           <div className="grid grid-cols-3 gap-2 mb-6">
             {[

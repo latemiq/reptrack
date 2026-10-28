@@ -11,7 +11,7 @@ interface TrainerRow {
 }
 
 /** Settings card: connect to a trainer with an invite code, and toggle trainer mode. Saves on its own. */
-export default function TrainerSection() {
+export default function TrainerSection({ onRoleChange }: { onRoleChange?: (role: 'athlete' | 'trainer') => void } = {}) {
   const [trainers, setTrainers] = useState<TrainerRow[]>([])
   const [role, setRole] = useState<'athlete' | 'trainer'>('athlete')
   const [code, setCode] = useState('')
@@ -69,6 +69,7 @@ export default function TrainerSection() {
     setBusy(false)
     if (res?.ok) {
       setRole(next)
+      onRoleChange?.(next)
       window.dispatchEvent(new Event('reptrack:role-changed'))
     }
   }
@@ -77,8 +78,9 @@ export default function TrainerSection() {
 
   return (
     <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5 md:p-6 space-y-4">
-      <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">Trener</p>
+      <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">{role === 'trainer' ? 'Konto trenera' : 'Trener'}</p>
 
+      {role === 'athlete' && <>
       {trainers.map(t => (
         <div key={t.relationId} className="flex items-center gap-3 bg-[#131313] border border-[#1c1c1c] rounded-xl px-4 py-3">
           <div className="flex-1 min-w-0">
@@ -107,14 +109,15 @@ export default function TrainerSection() {
           <p className={`mt-2 text-[12px] ${message.kind === 'ok' ? 'text-[#c8f53a]' : 'text-red-400'}`}>{message.text}</p>
         )}
       </div>
+      </>}
 
-      <div className="flex items-center gap-3 pt-3 border-t border-[#1a1a1a]">
+      <div className={`flex items-center gap-3 ${role === 'athlete' ? 'pt-3 border-t border-[#1a1a1a]' : ''}`}>
         <div className="flex-1">
           <div className="text-[13px] text-[#d0ccc4]">Tryb trenera</div>
           <div className="text-[10px] font-mono text-[#555]">
             {role === 'trainer'
-              ? <>Włączony · <Link href="/trainer" className="text-[#c8f53a] hover:underline">otwórz panel</Link></>
-              : 'Zapraszaj podopiecznych i podglądaj ich treningi'}
+              ? <>Włączony · <Link href="/trainer" className="text-[#c8f53a] hover:underline">pulpit</Link> · wyłączenie przywraca widok własnych treningów</>
+              : 'Osobna aplikacja trenera: statystyki podopiecznych, zaproszenia, plany. Bez własnych treningów.'}
           </div>
         </div>
         <button onClick={toggleRole} disabled={busy} role="switch" aria-checked={role === 'trainer'}

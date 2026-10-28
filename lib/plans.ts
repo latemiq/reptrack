@@ -71,6 +71,38 @@ export interface MacrocycleSummary {
   updatedAt: string | null
 }
 
+export interface MacroSummaryRow {
+  id: string
+  client_id: string
+  name: string
+  goal: string | null
+  start_date: string
+  updated_at: string | null
+  mesocycles: { position: number; name: string; focus: Focus | null; microcycles: { id: string }[] }[]
+}
+
+export const MACRO_SUMMARY_SELECT = 'id, client_id, name, goal, start_date, updated_at, mesocycles(position, name, focus, microcycles(id))'
+
+export function toMacroSummary(r: MacroSummaryRow): MacrocycleSummary {
+  const mesocycles = [...r.mesocycles]
+    .sort((a, b) => a.position - b.position)
+    .map(m => ({ name: m.name, focus: m.focus, weeks: m.microcycles.length }))
+  return {
+    id: r.id,
+    name: r.name,
+    goal: r.goal,
+    startDate: r.start_date,
+    weeks: mesocycles.reduce((s, m) => s + m.weeks, 0),
+    mesocycles,
+    updatedAt: r.updated_at,
+  }
+}
+
+/** 0-based index of the current week within a plan (may be <0 or ≥ weeks). */
+export function currentWeekIndex(startDate: string, now = Date.now()): number {
+  return Math.floor((now - weekStart(startDate, 0).getTime()) / (7 * 86400000))
+}
+
 export const newId = () => crypto.randomUUID()
 
 export const emptyWeek = (): Microcycle => ({ id: newId(), notes: '', sessions: [] })
