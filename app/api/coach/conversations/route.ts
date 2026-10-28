@@ -1,39 +1,35 @@
-import { auth } from '@clerk/nextjs/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUserId, unauthorized } from '@/lib/api-auth'
+import { loadCoachData } from '@/lib/coach-context'
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return new NextResponse('Unauthorized', { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
 
-  // TODO: fetch from Supabase
-  // const conversations = await supabase
-  //   .from('coach_conversations')
-  //   .select('id, title, category, updated_at')
-  //   .eq('user_id', userId)
-  //   .order('updated_at', { ascending: false })
-  //   .limit(50)
+  const [{ data, error }, coachData] = await Promise.all([
+    supabaseAdmin()
+      .from('coach_conversations')
+      .select('id, title, category, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(50),
+    loadCoachData(userId),
+  ])
 
-  return NextResponse.json({ conversations: [] })
-}
-
-export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return new NextResponse('Unauthorized', { status: 401 })
-
-  const body = await req.json().catch(() => null)
-  const title = typeof body?.title === 'string' ? body.title.trim() : ''
-  const category = typeof body?.category === 'string' ? body.category : 'general'
-
-  if (!title) {
-    return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+  if (error) {
+    console.error('Conversations fetch error:', error)
+    return NextResponse.json({ error: 'Database error' }, { status: 500 })
   }
 
-  // TODO: save to Supabase
-  // const { data } = await supabase
-  //   .from('coach_conversations')
-  //   .insert({ user_id: userId, title, category })
-  //   .select()
-  //   .single()
-
-  return NextResponse.json({ conversation: { id: crypto.randomUUID(), title, category } })
+  return NextResponse.json({
+    conversations: data ?? [],
+    // counts for the context chips
+    context: {
+      workouts: coachData.workouts.length,
+      runs:     coachData.runs.length,
+      weights:  coachData.weights.length,
+      goals:    coachData.goals.length,
+    },
+  })
 }

@@ -1,23 +1,9 @@
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
+import RunDetail from '@/components/running/RunDetail'
 
-const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+export const metadata = {
+  title: 'RepTrack — Szczegóły biegu',
+}
 
-export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  if (!AUTH_BYPASS) {
-    const { userId } = await auth()
-    if (!userId) redirect('/auth')
-  }
-
-  const { id } = await params
-
-  return (
-    <div className="flex items-center justify-center h-screen bg-[#080808] text-[#f0ece4]">
-      <div className="text-center max-w-md">
-        <h1 className="font-display text-[28px] font-black mb-2">Szczegóły biegu</h1>
-        <p className="text-[14px] text-[#666] mb-2">ID: {id}</p>
-        <p className="text-[12px] text-[#555]">Ta strona jest w budowie — wkrótce dostępne pełne dane biegu, mapa GPS, splity i analiza.</p>
-      </div>
-    </div>
-  )
+export default function RunDetailPage({ params }: { params: { id: string } }) {
+  return <RunDetail id={params.id} />
 }

@@ -16,7 +16,7 @@ export interface ProfileData {
   heightCm:  number | null
   weightKg:  number | null
   location:  string | null
-  level:     'beginner' | 'intermediate' | 'expert' | null
+  level:     'beginner' | 'intermediate' | 'advanced' | null
 }
 
 export interface LifetimeStats {
@@ -257,7 +257,7 @@ export default function UserProfile({ profile: profileProp, stats: statsProp }: 
               </span>
               {profile.level && (
                 <span className="px-2.5 py-1 rounded-md text-[9px] font-mono uppercase tracking-[1.2px] bg-white/[0.04] border border-white/[0.08] text-[#888]">
-                  {profile.level === 'beginner' ? 'Początkujący' : profile.level === 'intermediate' ? 'Intermediate' : 'Advanced'}
+                  {profile.level === 'beginner' ? 'Początkujący' : profile.level === 'intermediate' ? 'Średniozaawansowany' : 'Zaawansowany'}
                 </span>
               )}
             </div>
@@ -275,8 +275,8 @@ export default function UserProfile({ profile: profileProp, stats: statsProp }: 
           <LifetimeStatCard icon="⚡" label="Seria treningowa"
             value="0" sub="<b>dni</b> z rzędu"
             valueColor="purple" animateId="lt-streak" />
-          <LifetimeStatCard icon="🏆" label="Rekordów"
-            value="0" sub="<b>w 2025</b>"
+          <LifetimeStatCard icon="🏆" label="Ukończone cele"
+            value="0" sub={`<b>w ${new Date().getFullYear()}</b>`}
             valueColor="white" animateId="lt-prs" />
         </div>
 

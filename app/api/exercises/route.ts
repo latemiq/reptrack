@@ -1,18 +1,13 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-)
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUserId, unauthorized } from '@/lib/api-auth'
 
 export const revalidate = 3600
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
+  const supabase = supabaseAdmin()
 
   const { data, error } = await supabase
     .from('exercises')
@@ -29,8 +24,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
+  const supabase = supabaseAdmin()
 
   const body = await request.json()
 

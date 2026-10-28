@@ -10,7 +10,7 @@
     "seed:exercises": "tsx scripts/seed-exercises.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.3",
+    "@anthropic-ai/sdk": "^0.133.0",
     "@clerk/nextjs": "^5.7.6",
     "@gsap/react": "^2.1.2",
     "@supabase/ssr": "^0.10.3",

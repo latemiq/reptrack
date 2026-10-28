@@ -11,6 +11,8 @@ interface FormState {
   level: string
   location: string
   bio: string
+  weeklyKmGoal: number | ''
+  weeklyDays: number | ''
 }
 
 const LEVELS = [
@@ -21,7 +23,7 @@ const LEVELS = [
 
 export default function SettingsForm() {
   const router = useRouter()
-  const [form, setForm] = useState<FormState>({ weightKg: 78, heightCm: 178, age: '', level: '', location: '', bio: '' })
+  const [form, setForm] = useState<FormState>({ weightKg: 78, heightCm: 178, age: '', level: '', location: '', bio: '', weeklyKmGoal: '', weeklyDays: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle')
@@ -40,6 +42,8 @@ export default function SettingsForm() {
             level:    p.level ?? '',
             location: p.location ?? '',
             bio:      p.bio ?? '',
+            weeklyKmGoal: p.weeklyKmGoal ?? '',
+            weeklyDays:   p.weeklyDays ?? '',
           })
         }
       })
@@ -61,6 +65,8 @@ export default function SettingsForm() {
           level:     form.level || null,
           location:  form.location || null,
           bio:       form.bio || null,
+          weekly_km_goal: form.weeklyKmGoal === '' ? null : Number(form.weeklyKmGoal),
+          weekly_days:    form.weeklyDays === '' ? null : Number(form.weeklyDays),
         }),
       })
       setStatus(res.ok ? 'saved' : 'error')
@@ -191,6 +197,27 @@ export default function SettingsForm() {
               </button>
             )
           })}
+        </div>
+
+        {/* Weekly targets */}
+        <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5 md:p-6 space-y-4">
+          <p className="text-[10px] font-mono uppercase tracking-[2px] text-[#444]">Cele tygodniowe</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={label}>Km / tydzień</label>
+              <input type="number" min={0} step={1} placeholder="np. 30"
+                value={form.weeklyKmGoal}
+                onChange={e => setForm(f => ({ ...f, weeklyKmGoal: e.target.value === '' ? '' : Number(e.target.value) }))}
+                className={input} />
+            </div>
+            <div>
+              <label className={label}>Treningi / tydzień</label>
+              <input type="number" min={0} max={14} step={1} placeholder="np. 4"
+                value={form.weeklyDays}
+                onChange={e => setForm(f => ({ ...f, weeklyDays: e.target.value === '' ? '' : Number(e.target.value) }))}
+                className={input} />
+            </div>
+          </div>
         </div>
 
         {/* Personal info */}

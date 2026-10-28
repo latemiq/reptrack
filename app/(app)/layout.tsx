@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
@@ -52,6 +53,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/goals',
+    label: 'Cele',
+    icon: (
+      <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="10" cy="10" r="4" stroke="currentColor" strokeWidth="1.5" />
+        <circle cx="10" cy="10" r="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
     href: '/notifications',
     label: 'Powiadomienia',
     icon: (
@@ -98,6 +110,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useUser()
   const { signOut } = useClerk()
   const unreadCount = useNotificationsStore(selectUnreadCount)
+  const fetchNotifications = useNotificationsStore(s => s.fetchNotifications)
+
+  useEffect(() => { fetchNotifications() }, [fetchNotifications, pathname])
   const activeNavItem = ALL_NAV.find((item) => isActiveRoute(pathname, item.href))
 
   const userInitials = user
@@ -216,7 +231,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-bottom">
-        {[...NAV_ITEMS, ACCOUNT_ITEMS[0]].map((item) => {
+        {[...NAV_ITEMS.filter(i => i.href !== '/notifications'), ACCOUNT_ITEMS[0]].map((item) => {
           const active = isActiveRoute(pathname, item.href)
           return (
             <Link key={item.href} href={item.href}

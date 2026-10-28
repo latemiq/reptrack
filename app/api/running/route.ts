@@ -1,12 +1,7 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-)
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUserId, unauthorized } from '@/lib/api-auth'
+import { syncRunningGoals } from '@/lib/goals'
 
 const toPositiveNumber = (value: unknown) => {
   const n = typeof value === 'number' ? value : Number(value)
@@ -25,24 +20,26 @@ const toNullableInt = (value: unknown) => {
 }
 
 export async function GET(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
+  const supabase = supabaseAdmin()
 
   const { searchParams } = new URL(req.url)
-  const requestedLimit = Number(searchParams.get('limit') ?? '50')
-  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 100) : 50
+  const requestedLimit = Number(searchParams.get('limit') ?? '200')
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 500) : 200
   const range = searchParams.get('range') ?? '30d'
 
-  const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 365
-  const since = new Date(Date.now() - days * 86400000).toISOString()
+  const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : range === 'all' ? null : 365
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('runs')
     .select('*')
     .eq('user_id', userId)
-    .gte('ran_at', since)
     .order('ran_at', { ascending: false })
     .limit(limit)
+  if (days != null) query = query.gte('ran_at', new Date(Date.now() - days * 86400000).toISOString())
+
+  const { data, error } = await query
 
   if (error) {
     console.error('Runs fetch error:', error)
@@ -53,8 +50,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
+  const supabase = supabaseAdmin()
 
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') {
@@ -118,6 +116,8 @@ export async function POST(req: NextRequest) {
     console.error('Insert run error:', error)
     return NextResponse.json({ error: 'Zapis nie powiódł się' }, { status: 500 })
   }
+
+  await syncRunningGoals(userId)
 
   return NextResponse.json({ id: data.id, success: true })
 }

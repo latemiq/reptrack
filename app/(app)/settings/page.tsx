@@ -1,13 +1,10 @@
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
 import SettingsForm from '@/components/settings/SettingsForm'
 
 export const metadata = {
   title: 'RepTrack – Ustawienia',
 }
 
-export default async function SettingsPage() {
-  const { userId } = await auth()
-  if (!userId) redirect('/auth')
+// Access is enforced by middleware.ts (redirects to /auth unless NEXT_PUBLIC_BYPASS_AUTH=true)
+export default function SettingsPage() {
   return <SettingsForm />
 }

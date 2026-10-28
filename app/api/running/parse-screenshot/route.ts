@@ -1,8 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-const anthropic = new Anthropic()
+import { anthropic, COACH_MODEL, FALLBACK_BETA } from '@/lib/anthropic'
+import { getUserId, unauthorized } from '@/lib/api-auth'
 
 export const maxDuration = 30
 
@@ -15,8 +13,8 @@ const sourceOrOther = (value: unknown) =>
     : 'other'
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
 
   try {
     const { imageBase64, mimeType } = await req.json()
@@ -28,9 +26,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nieobsługiwany format obrazka' }, { status: 400 })
     }
 
-    const message = await anthropic.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 1024,
+    const message = await anthropic.beta.messages.create({
+      model: COACH_MODEL,
+      max_tokens: 4096,
+      output_config: { effort: 'low' },
+      betas: [FALLBACK_BETA],
+      fallbacks: 'default',
       messages: [{
         role: 'user',
         content: [
@@ -70,7 +71,11 @@ Zasady:
       }],
     })
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    if (message.stop_reason === 'refusal') {
+      return NextResponse.json({ error: 'AI odmówiło analizy tego obrazka' }, { status: 422 })
+    }
+
+    const text = message.content.flatMap(b => (b.type === 'text' ? [b.text] : [])).join('')
     const cleaned = text.replace(/```json|```/g, '').trim()
 
     let parsed: Record<string, unknown>

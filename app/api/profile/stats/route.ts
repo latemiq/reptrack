@@ -1,25 +1,27 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-)
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUserId, unauthorized } from '@/lib/api-auth'
+import { computeStreak, dayKey } from '@/lib/stats'
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
+  const supabase = supabaseAdmin()
 
-  const [runsAgg, workoutsAgg] = await Promise.all([
+  const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString()
+  const [runsAgg, workoutsAgg, profileRes, completedGoals] = await Promise.all([
     supabase.from('runs').select('distance_km').eq('user_id', userId),
     supabase.from('workouts').select('total_tonnage').eq('user_id', userId).not('finished_at', 'is', null),
+    supabase.from('profiles').select('created_at').eq('id', userId).maybeSingle(),
+    supabase.from('goals').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'completed').gte('completed_at', yearStart),
   ])
 
-  const totalDistanceKm = (runsAgg.data ?? []).reduce((s, r) => s + (r.distance_km ?? 0), 0)
+  // numeric columns come back from PostgREST as strings
+  const totalDistanceKm = (runsAgg.data ?? []).reduce((s, r) => s + Number(r.distance_km ?? 0), 0)
   const totalRuns       = runsAgg.data?.length ?? 0
-  const totalTonnageKg  = (workoutsAgg.data ?? []).reduce((s, w) => s + (w.total_tonnage ?? 0), 0)
+  const totalTonnageKg  = (workoutsAgg.data ?? []).reduce((s, w) => s + Number(w.total_tonnage ?? 0), 0)
+  const createdAt       = profileRes.data?.created_at ? new Date(profileRes.data.created_at) : new Date()
+  const memberMonths    = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / (30 * 86400000)))
   const totalWorkouts   = workoutsAgg.data?.length ?? 0
 
   // Streak: merge activity dates from runs + workouts (last 60 days)
@@ -30,9 +32,9 @@ export async function GET() {
   ])
 
   const dates = new Set<string>()
-  recentRuns?.forEach(r => r.ran_at && dates.add(r.ran_at.slice(0, 10)))
-  recentWorkouts?.forEach(w => w.finished_at && dates.add(w.finished_at.slice(0, 10)))
-  const currentStreak = computeStreak(Array.from(dates))
+  recentRuns?.forEach(r => r.ran_at && dates.add(dayKey(r.ran_at)))
+  recentWorkouts?.forEach(w => w.finished_at && dates.add(dayKey(w.finished_at)))
+  const currentStreak = computeStreak(dates)
 
   return NextResponse.json({
     stats: {
@@ -41,26 +43,8 @@ export async function GET() {
       totalTonnageKg:  Math.round(totalTonnageKg),
       totalWorkouts,
       currentStreak,
-      prsThisYear:     0,
-      memberMonths:    0,
+      prsThisYear:     completedGoals.count ?? 0,
+      memberMonths,
     }
   })
-}
-
-function computeStreak(dates: string[]): number {
-  const set = new Set(dates)
-  let streak = 0
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-
-  if (!set.has(cursor.toISOString().slice(0, 10))) {
-    cursor.setDate(cursor.getDate() - 1)
-  }
-
-  while (set.has(cursor.toISOString().slice(0, 10))) {
-    streak++
-    cursor.setDate(cursor.getDate() - 1)
-    if (streak > 365) break
-  }
-  return streak
 }

@@ -1,48 +1,40 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useWorkoutStore, type ExerciseEntry } from '@/lib/stores/useWorkoutStore'
-
-type ExerciseTemplate = Omit<ExerciseEntry, 'sets'>
-
-const TEMPLATES = [
-  { id: 'push', name: 'Push · klatka + barki', exercises: 5, lastUsed: '3 dni temu' },
-  { id: 'pull', name: 'Pull · plecy + biceps', exercises: 5, lastUsed: '5 dni temu' },
-  { id: 'legs', name: 'Legs · uda + łydki',    exercises: 6, lastUsed: 'tydzień' },
-]
-
-const PUSH_EXERCISES: ExerciseTemplate[] = [
-  { id: '1', exerciseId: 'bench',    name: 'Wyciskanie sztangi na ławce',  targetSets: 4, targetReps: 6,  targetWeight: 100, restSeconds: 180 },
-  { id: '2', exerciseId: 'incline',  name: 'Wyciskanie hantli skos góra',  targetSets: 3, targetReps: 8,  targetWeight: 32,  restSeconds: 150 },
-  { id: '3', exerciseId: 'ohp',      name: 'OHP — wyciskanie żołnierskie', targetSets: 4, targetReps: 6,  targetWeight: 65,  restSeconds: 150 },
-  { id: '4', exerciseId: 'dips',     name: 'Pompki na poręczach',          targetSets: 3, targetReps: 10, targetWeight: null, restSeconds: 120 },
-  { id: '5', exerciseId: 'pushdown', name: 'Wyciskanie francuskie linkami', targetSets: 3, targetReps: 12, targetWeight: 25,  restSeconds: 90  },
-]
-
-const MOCK_EXERCISES: Record<string, ExerciseTemplate[]> = {
-  push: PUSH_EXERCISES,
-  pull: [],
-  legs: [],
-}
+import { useWorkoutStore } from '@/lib/stores/useWorkoutStore'
+import type { WorkoutTemplate } from '@/lib/templates'
+import { relativeDay } from '@/lib/stats'
 
 export default function GymPage() {
   const router = useRouter()
   const { activeWorkout, startWorkout } = useWorkoutStore()
+  const [templates, setTemplates] = useState<WorkoutTemplate[] | null>(null)
+  const [error, setError] = useState('')
 
-  const handleStart = (templateId: string) => {
-    const tmpl = TEMPLATES.find(t => t.id === templateId)
-    if (!tmpl) return
-    const exercises = MOCK_EXERCISES[templateId as keyof typeof MOCK_EXERCISES] ?? []
-    startWorkout(tmpl.name, exercises, templateId)
-    setTimeout(() => {
-      const w = useWorkoutStore.getState().activeWorkout
-      if (w) router.push(`/gym/log/${w.id}`)
-    }, 50)
+  useEffect(() => {
+    fetch('/api/gym/templates')
+      .then(async res => {
+        if (!res.ok) throw new Error()
+        return res.json()
+      })
+      .then(d => setTemplates(d.templates))
+      .catch(() => { setTemplates([]); setError('Nie udało się wczytać szablonów. Sprawdź połączenie z bazą.') })
+  }, [])
+
+  const begin = (name: string, tmpl: WorkoutTemplate | null) => {
+    startWorkout(
+      name,
+      (tmpl?.exercises ?? []).map(ex => ({ ...ex, id: crypto.randomUUID() })),
+      tmpl?.id,
+    )
+    const w = useWorkoutStore.getState().activeWorkout
+    if (w) router.push(`/gym/log/${w.id}`)
   }
 
   return (
-    <div className="flex h-screen bg-[#080808] text-[#f0ece4]">
-      <main className="flex-1 overflow-y-auto px-7 py-7">
+    <div className="min-h-full bg-[#080808] text-[#f0ece4]">
+      <main className="px-4 md:px-7 py-6 md:py-7">
 
         <div className="mb-8">
           <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">Siłownia</p>
@@ -51,7 +43,7 @@ export default function GymPage() {
         </div>
 
         {activeWorkout && (
-          <div className="bg-[#f5a03a]/[0.06] border border-[#f5a03a]/20 rounded-2xl p-5 mb-6 flex justify-between items-center">
+          <div className="bg-[#f5a03a]/[0.06] border border-[#f5a03a]/20 rounded-2xl p-5 mb-6 flex flex-wrap gap-3 justify-between items-center">
             <div>
               <div className="text-[10px] font-mono text-[#f5a03a] uppercase tracking-[2px] mb-1">Trening trwa</div>
               <div className="font-display text-[16px] font-black">{activeWorkout.name}</div>
@@ -65,11 +57,16 @@ export default function GymPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
-          {TEMPLATES.map(t => (
+        {error && <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {templates === null && [0, 1, 2].map(i => (
+            <div key={i} className="h-[124px] rounded-2xl bg-[#0f0f0f] border border-[#1a1a1a] animate-pulse" />
+          ))}
+          {templates?.map(t => (
             <button
               key={t.id}
-              onClick={() => handleStart(t.id)}
+              onClick={() => begin(t.name, t)}
               disabled={!!activeWorkout}
               className="bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#f5a03a]/30 hover:bg-[#f5a03a]/[0.03] disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl p-5 text-left transition-all hover:-translate-y-1"
             >
@@ -81,36 +78,33 @@ export default function GymPage() {
                 </svg>
               </div>
               <div className="font-display text-[16px] font-black mb-1">{t.name}</div>
-              <div className="text-[10px] font-mono text-[#666]">{t.exercises} ćwiczeń · {t.lastUsed}</div>
+              <div className="text-[10px] font-mono text-[#666]">
+                {t.exercises.length} ćwiczeń · {t.last_used_at ? `ostatnio ${relativeDay(t.last_used_at)}` : 'jeszcze nieużyty'}
+              </div>
             </button>
           ))}
-          <button
-            onClick={() => {
-              const name = `Trening ${new Date().toLocaleDateString('pl-PL')}`
-              startWorkout(name, [], 'blank')
-              setTimeout(() => {
-                const w = useWorkoutStore.getState().activeWorkout
-                if (w) router.push(`/gym/log/${w.id}`)
-              }, 50)
-            }}
-            disabled={!!activeWorkout}
-            className="bg-[#0f0f0f] border border-dashed border-[#2a2a2a] hover:border-[#f5a03a]/25 hover:bg-[#f5a03a]/[0.02] disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl p-5 text-left transition-all hover:-translate-y-1"
-          >
-            <div className="w-8 h-8 rounded-lg border border-dashed border-[#333] flex items-center justify-center mb-3">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 2v10M2 7h10" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <div className="font-display text-[16px] font-black mb-1 text-[#888]">Pusty trening</div>
-            <div className="text-[10px] font-mono text-[#444]">Zacznij od zera</div>
-          </button>
+          {templates !== null && (
+            <button
+              onClick={() => begin(`Trening ${new Date().toLocaleDateString('pl-PL')}`, null)}
+              disabled={!!activeWorkout}
+              className="bg-[#0f0f0f] border border-dashed border-[#2a2a2a] hover:border-[#f5a03a]/25 hover:bg-[#f5a03a]/[0.02] disabled:opacity-40 disabled:cursor-not-allowed rounded-2xl p-5 text-left transition-all hover:-translate-y-1"
+            >
+              <div className="w-8 h-8 rounded-lg border border-dashed border-[#333] flex items-center justify-center mb-3">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 2v10M2 7h10" stroke="#555" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div className="font-display text-[16px] font-black mb-1 text-[#888]">Pusty trening</div>
+              <div className="text-[10px] font-mono text-[#444]">Zacznij od zera</div>
+            </button>
+          )}
         </div>
 
-        <div className="mt-8 grid grid-cols-3 gap-3">
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: 'Szablony', href: '/gym/templates', desc: 'Twórz i edytuj własne szablony' },
             { label: 'Historia', href: '/gym/history', desc: 'Archiwum ukończonych treningów' },
-            { label: 'Ćwiczenia', href: '/gym/exercises', desc: 'Własna baza ćwiczeń' },
+            { label: 'Ćwiczenia', href: '/gym/exercises', desc: 'Atlas i własna baza ćwiczeń' },
           ].map(item => (
             <button
               key={item.href}

@@ -2,112 +2,104 @@
 
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AddRunModal from './AddRunModal'
+import { fmtDuration, fmtPace, relativeDay, startOfWeek } from '@/lib/stats'
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
 export type RunType = 'easy' | 'tempo' | 'long' | 'interval' | 'recovery' | 'race'
 
+interface RunRow {
+  id: string
+  name: string
+  ran_at: string
+  distance_km: number | string
+  duration_seconds: number
+  avg_pace_seconds_per_km: number | null
+  avg_hr: number | null
+  max_hr: number | null
+  elevation_gain_m: number | string | null
+  location: string | null
+  type: RunType | null
+}
+
 export interface Run {
   id: string
   name: string
-  date: string
+  ranAt: Date
+  dateLabel: string
   distanceKm: number
   durationSeconds: number
   avgPaceSecondsPerKm: number
   avgHr: number | null
-  maxHr: number | null
   elevationGainM: number | null
   location: string | null
   type: RunType
   isPR: boolean
   isToday: boolean
-  routePath?: string
-  hrZones?: number[]
 }
 
-export interface RunningStats {
-  totalDistanceKm: number
-  runCount: number
-  avgPaceSecondsPerKm: number
-  paceDeltaSeconds: number
-  totalHours: number
-  avgRunMinutes: number
-  pr5kSeconds: number
-  pr5kDeltaSeconds: number
-  paceLast7Days: number[]
-  weekDistanceKm: number
-  weekGoalKm: number
-  weekRunCount: number
-  weekRunGoal: number
-}
-
-export interface RunningGoals {
-  pr5k: { current: string; target: string }
-  pr10k: { current: string; target: string }
-  prHalf: { current: string; target: string }
-  nextRace: { name: string; targetTime: string; date: string; weeksLeft: number }
+interface RunningGoal {
+  id: string
+  name: string
+  category: string | null
+  unit: string | null
+  target_value: number | string
+  current_value: number | string | null
+  target_date: string | null
+  status: string
+  progress: number
 }
 
 type RangeFilter = '7d' | '30d' | '90d' | 'year'
 type TypeFilter   = 'all' | 'tempo' | 'long' | 'interval'
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-
-const MOCK_RUNS: Run[] = [
-  { id:'r1', name:'Bieg poranny', date:'dziś · 7:14', distanceKm:12.4, durationSeconds:64*60+28, avgPaceSecondsPerKm:5*60+12, avgHr:152, maxHr:168, elevationGainM:142, location:'Ochota, Warszawa', type:'easy', isPR:false, isToday:true, hrZones:[8,42,32,14,4], routePath:'M 30 100 Q 70 60 110 75 T 200 50 Q 250 30 290 70 T 370 90' },
-  { id:'r2', name:'Tempo 5 km', date:'wt · interwałowy', distanceKm:5.0, durationSeconds:22*60+14, avgPaceSecondsPerKm:4*60+26, avgHr:168, maxHr:182, elevationGainM:24, location:'Stadion Skra', type:'tempo', isPR:true, isToday:false },
-  { id:'r3', name:'Long run niedzielny', date:'nd', distanceKm:18.2, durationSeconds:102*60+34, avgPaceSecondsPerKm:5*60+38, avgHr:144, maxHr:165, elevationGainM:88, location:'Park Skaryszewski', type:'long', isPR:false, isToday:false },
-  { id:'r4', name:'Recovery run', date:'pt', distanceKm:6.0, durationSeconds:36*60+10, avgPaceSecondsPerKm:6*60+2, avgHr:132, maxHr:148, elevationGainM:32, location:null, type:'recovery', isPR:false, isToday:false },
-  { id:'r5', name:'Interwały 6×400m', date:'śr', distanceKm:7.4, durationSeconds:35*60+50, avgPaceSecondsPerKm:4*60+50, avgHr:175, maxHr:188, elevationGainM:18, location:'Stadion Skra', type:'interval', isPR:false, isToday:false },
-]
-
-const MOCK_STATS: RunningStats = {
-  totalDistanceKm: 148.6,
-  runCount: 12,
-  avgPaceSecondsPerKm: 5*60+12,
-  paceDeltaSeconds: -8,
-  totalHours: 9.4,
-  avgRunMinutes: 47,
-  pr5kSeconds: 22*60+14,
-  pr5kDeltaSeconds: -32,
-  paceLast7Days: [60, 48, 92, 65, 38, 72, 55],
-  weekDistanceKm: 38.4,
-  weekGoalKm: 45,
-  weekRunCount: 3,
-  weekRunGoal: 4,
-}
-
-const MOCK_GOALS: RunningGoals = {
-  pr5k:  { current:'22:14',   target:'21:00' },
-  pr10k: { current:'47:32',   target:'45:00' },
-  prHalf:{ current:'1:48:00', target:'1:42:00' },
-  nextRace: { name:'Maraton Warszawski', targetTime:'2:45:00', date:'28.09.2025', weeksLeft:22 },
-}
+const RANGE_DAYS: Record<RangeFilter, number> = { '7d': 7, '30d': 30, '90d': 90, 'year': 365 }
+const RANGE_LABELS: Record<RangeFilter, string> = { '7d': '7d', '30d': '30d', '90d': '90d', 'year': 'Rok' }
+const RANGE_LONG: Record<RangeFilter, string> = { '7d': '7 dni', '30d': '30 dni', '90d': '90 dni', 'year': 'rok' }
+const TYPE_LABELS: Record<TypeFilter, string> = { all: 'Wszystkie', tempo: 'Tempo', long: 'Długie', interval: 'Interwały' }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-const fmtPace = (secondsPerKm: number) => {
-  const m = Math.floor(secondsPerKm / 60)
-  const s = secondsPerKm % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-const fmtDuration = (s: number) => {
-  if (s < 3600) {
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return `${m}:${String(sec).padStart(2, '0')}`
+const toRun = (r: RunRow): Run => {
+  const ranAt = new Date(r.ran_at)
+  const km = Number(r.distance_km)
+  const isToday = ranAt.toDateString() === new Date().toDateString()
+  return {
+    id: r.id,
+    name: r.name,
+    ranAt,
+    dateLabel: `${relativeDay(r.ran_at)} · ${ranAt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}`,
+    distanceKm: km,
+    durationSeconds: r.duration_seconds,
+    avgPaceSecondsPerKm: r.avg_pace_seconds_per_km ?? (km > 0 ? Math.round(r.duration_seconds / km) : 0),
+    avgHr: r.avg_hr,
+    elevationGainM: r.elevation_gain_m != null ? Number(r.elevation_gain_m) : null,
+    location: r.location,
+    type: (r.type ?? 'easy') as RunType,
+    isPR: false,
+    isToday,
   }
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  return `${h}:${String(m).padStart(2, '0')}`
 }
 
-const RANGE_LABELS: Record<RangeFilter, string> = { '7d':'7d', '30d':'30d', '90d':'90d', 'year':'Rok' }
-const TYPE_LABELS: Record<TypeFilter, string> = { all:'Wszystkie', tempo:'Tempo', long:'Długie', interval:'Interwały' }
+/** Best time over `km`, estimated from runs at least that long (avg pace × km). */
+const bestTimeFor = (runs: Run[], km: number): { seconds: number; runId: string } | null => {
+  let best: { seconds: number; runId: string } | null = null
+  for (const r of runs) {
+    if (r.distanceKm < km || !r.avgPaceSecondsPerKm) continue
+    const seconds = Math.round(r.avgPaceSecondsPerKm * km)
+    if (!best || seconds < best.seconds) best = { seconds, runId: r.id }
+  }
+  return best
+}
+
+const avgPaceOf = (runs: Run[]) => {
+  const km = runs.reduce((s, r) => s + r.distanceKm, 0)
+  const sec = runs.reduce((s, r) => s + r.durationSeconds, 0)
+  return km > 0 ? sec / km : 0
+}
 
 // ─── SUB-COMPONENTS ───────────────────────────────────────────────────────────
 
@@ -126,7 +118,7 @@ function HeroCard({
     white: 'text-[#f0ece4]',
   }
   return (
-    <div className={`hero-card relative overflow-hidden rounded-2xl p-4 cursor-none transition-all duration-250 ${
+    <div className={`hero-card relative overflow-hidden rounded-2xl p-4 transition-all duration-250 ${
       accent
         ? 'bg-[#f5a03a]/[0.04] border border-[#f5a03a]/18 hover:border-[#f5a03a]/30'
         : 'bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a]'
@@ -153,7 +145,7 @@ function HeroCard({
 function RunListItem({ run, onClick }: { run: Run; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className="run-item grid grid-cols-[36px_1fr_auto_auto_auto] gap-3.5 items-center px-1.5 py-2.5 cursor-none transition-colors rounded-md hover:bg-white/[0.02] border-b border-[#131313] last:border-b-0 w-full text-left"
+      className="run-item grid grid-cols-[36px_1fr_auto_auto_auto] gap-3.5 items-center px-1.5 py-2.5 transition-colors rounded-md hover:bg-white/[0.02] border-b border-[#131313] last:border-b-0 w-full text-left"
     >
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-[14px] flex-shrink-0 ${
         run.isPR
@@ -167,7 +159,7 @@ function RunListItem({ run, onClick }: { run: Run; onClick: () => void }) {
           {run.isPR && <span className="text-[7px] font-mono uppercase tracking-[0.8px] text-[#c8f53a] bg-[#c8f53a]/15 rounded px-1 py-0.5 flex-shrink-0">PR</span>}
           {run.isToday && <span className="text-[7px] font-mono uppercase tracking-[0.8px] text-[#c8f53a] bg-[#c8f53a]/15 rounded px-1 py-0.5 flex-shrink-0">DZIŚ</span>}
         </div>
-        <div className="text-[9px] font-mono text-[#444] truncate">{run.date}{run.location && ` · ${run.location}`}</div>
+        <div className="text-[9px] font-mono text-[#444] truncate">{run.dateLabel}{run.location && ` · ${run.location}`}</div>
       </div>
 
       <div className="text-right min-w-[54px]">
@@ -186,106 +178,63 @@ function RunListItem({ run, onClick }: { run: Run; onClick: () => void }) {
   )
 }
 
-function PaceChart({ data, avgPace }: { data: number[]; avgPace: number }) {
-  const max = Math.max(...data)
-  const days = ['pn', 'wt', 'śr', 'cz', 'pt', 'sb', 'nd']
-  const bestIdx = data.indexOf(max)
+/** Distance per day over the last 7 days. */
+function DistanceChart({ days }: { days: { label: string; km: number }[] }) {
+  const max = Math.max(...days.map(d => d.km), 0.1)
+  const total = days.reduce((s, d) => s + d.km, 0)
+  const bestIdx = days.findIndex(d => d.km === max && d.km > 0)
 
   return (
     <div className="side-card bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4">
       <div className="flex justify-between items-center mb-2.5">
-        <div className="font-display text-[13px] font-black text-[#f0ece4]">Tempo · 7 dni</div>
-        <div className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f5a03a]/[0.12] text-[#f5a03a]">{fmtPace(avgPace)} śr.</div>
+        <div className="font-display text-[13px] font-black text-[#f0ece4]">Dystans · 7 dni</div>
+        <div className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f5a03a]/[0.12] text-[#f5a03a]">{total.toFixed(1)} km</div>
       </div>
       <div className="flex items-end justify-between gap-1 h-[80px] mb-1.5">
-        {data.map((h, i) => (
+        {days.map((d, i) => (
           <div key={i}
-            data-h={h}
+            title={`${d.km.toFixed(1)} km`}
+            data-h={d.km > 0 ? Math.max(8, Math.round((d.km / max) * 100)) : 3}
             className={`pace-bar flex-1 rounded-t-md rounded-b-sm transition-[height] duration-[1200ms] ease-[cubic-bezier(.16,1,.3,1)] ${
               i === bestIdx
                 ? 'bg-gradient-to-b from-[#c8f53a]/70 to-[#c8f53a]/25'
-                : 'bg-gradient-to-b from-[#f5a03a]/60 to-[#f5a03a]/20'
+                : d.km > 0 ? 'bg-gradient-to-b from-[#f5a03a]/60 to-[#f5a03a]/20' : 'bg-[#1a1a1a]'
             }`}
             style={{ height: '0%' }}
           />
         ))}
       </div>
       <div className="flex justify-between text-[8px] font-mono text-[#333]">
-        {days.map(d => <span key={d}>{d}</span>)}
+        {days.map((d, i) => <span key={i}>{d.label}</span>)}
       </div>
     </div>
   )
 }
 
-function MiniMap({ routePath, distanceKm, elevationGain }: {
-  routePath?: string; distanceKm: number; elevationGain: number | null
-}) {
-  const pathRef = useRef<SVGPathElement>(null)
-
-  useEffect(() => {
-    const path = pathRef.current
-    if (!path || !routePath) return
-    const length = path.getTotalLength()
-    path.style.strokeDasharray = String(length)
-    path.style.strokeDashoffset = String(length)
-    path.style.transition = 'stroke-dashoffset 2.2s cubic-bezier(.16,1,.3,1)'
-    requestAnimationFrame(() => { path.style.strokeDashoffset = '0' })
-  }, [routePath])
-
+function LastRunCard({ run, onClick }: { run: Run; onClick: () => void }) {
   return (
-    <div className="side-card bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4">
-      <div className="flex justify-between items-center mb-2.5">
-        <div className="font-display text-[13px] font-black text-[#f0ece4]">Trasa · dziś</div>
-        <div className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f5a03a]/[0.12] text-[#f5a03a]">{distanceKm.toFixed(1)} km</div>
-      </div>
-      <div className="relative h-[140px] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
-        <svg viewBox="0 0 400 140" preserveAspectRatio="none" className="w-full h-full block">
-          <defs>
-            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(245,160,58,0.04)" strokeWidth="1"/>
-            </pattern>
-          </defs>
-          <rect width="400" height="140" fill="url(#grid)"/>
-          {routePath && (
-            <>
-              <path ref={pathRef} d={routePath} fill="none" stroke="#f5a03a" strokeWidth="2.5" strokeLinecap="round" />
-              <circle cx="30" cy="100" r="4" fill="#c8f53a"/>
-              <circle cx="370" cy="90" r="4" fill="#f5a03a"/>
-            </>
-          )}
-        </svg>
-        <div className="absolute bottom-2 left-2.5 text-[9px] font-mono text-[#888] bg-black/70 px-2 py-1 rounded-md backdrop-blur-sm">
-          {elevationGain != null ? `↑ ${elevationGain}m ↓ ${elevationGain - 4}m` : 'Brak danych'}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function HrZones({ zones, durationSeconds }: { zones: number[]; durationSeconds: number }) {
-  const labels = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5']
-  const colors = ['#3a87f5', '#3af5b8', '#c8f53a', '#f5a03a', '#f53a3a']
-  return (
-    <div className="side-card bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4">
+    <button onClick={onClick} className="side-card bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#2a2a2a] rounded-2xl p-4 text-left w-full transition-colors">
       <div className="flex justify-between items-center mb-3">
-        <div className="font-display text-[13px] font-black text-[#f0ece4]">Strefy tętna</div>
-        <div className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-[#888]">{fmtDuration(durationSeconds)}</div>
+        <div className="font-display text-[13px] font-black text-[#f0ece4]">Ostatni bieg</div>
+        <div className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f5a03a]/[0.12] text-[#f5a03a]">{run.dateLabel}</div>
       </div>
-      <div className="flex flex-col gap-1.5">
-        {zones.map((pct, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="text-[9px] font-mono text-[#666] w-7">{labels[i]}</span>
-            <div className="flex-1 h-[5px] bg-[#1a1a1a] rounded-sm overflow-hidden">
-              <div className="hr-zone-fill h-full rounded-sm transition-[width] duration-[1000ms] ease-[cubic-bezier(.16,1,.3,1)]"
-                data-w={pct}
-                style={{ width: '0%', background: colors[i] }}
-              />
-            </div>
-            <span className="text-[9px] font-mono text-[#888] w-7 text-right">{pct}%</span>
+      <div className="text-[12px] text-[#ccc] mb-3 truncate">{run.name}</div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          ['Dystans', `${run.distanceKm.toFixed(2)} km`],
+          ['Czas', fmtDuration(run.durationSeconds)],
+          ['Tempo', `${fmtPace(run.avgPaceSecondsPerKm)}/km`],
+          ['Tętno', run.avgHr ? `${run.avgHr} bpm` : '—'],
+          ['Przewyższ.', run.elevationGainM != null ? `${run.elevationGainM} m` : '—'],
+          ['Typ', run.type],
+        ].map(([l, v]) => (
+          <div key={l}>
+            <div className="text-[8px] font-mono text-[#444] uppercase tracking-[1px] mb-0.5">{l}</div>
+            <div className="text-[12px] font-display font-black text-[#f0ece4]">{v}</div>
           </div>
         ))}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -298,9 +247,9 @@ function BottomCard({ title, items }: {
       <div className="text-[11px] font-mono text-[#888] uppercase tracking-[1.2px] mb-2.5">{title}</div>
       <div className="flex flex-col gap-2">
         {items.map((item, i) => (
-          <div key={i} className="flex justify-between items-center text-[11px]">
-            <span className="text-[#888]">{item.label}</span>
-            <span className={`font-display text-[13px] font-black ${item.accent ? 'text-[#f5a03a]' : 'text-[#f0ece4]'}`}>
+          <div key={i} className="flex justify-between items-center text-[11px] gap-2">
+            <span className="text-[#888] truncate">{item.label}</span>
+            <span className={`font-display text-[13px] font-black flex-shrink-0 ${item.accent ? 'text-[#f5a03a]' : 'text-[#f0ece4]'}`}>
               {item.value}
             </span>
           </div>
@@ -312,17 +261,7 @@ function BottomCard({ title, items }: {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-interface RunningOverviewProps {
-  runs?: Run[]
-  stats?: RunningStats
-  goals?: RunningGoals
-}
-
-export default function RunningOverview({
-  runs = MOCK_RUNS,
-  stats = MOCK_STATS,
-  goals = MOCK_GOALS,
-}: RunningOverviewProps) {
+export default function RunningOverview() {
   const router = useRouter()
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -330,59 +269,129 @@ export default function RunningOverview({
   const [typeFilter, setTypeFilter]   = useState<TypeFilter>('all')
   const [showAddRun, setShowAddRun]   = useState(false)
 
+  const [allRuns, setAllRuns] = useState<Run[] | null>(null)
+  const [weekGoalKm, setWeekGoalKm] = useState<number | null>(null)
+  const [runningGoal, setRunningGoal] = useState<RunningGoal | null>(null)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    try {
+      const [runsRes, profileRes, goalsRes] = await Promise.all([
+        fetch('/api/running?range=all&limit=500'),
+        fetch('/api/profile'),
+        fetch('/api/goals'),
+      ])
+      if (!runsRes.ok) throw new Error(`HTTP ${runsRes.status}`)
+      const { runs } = await runsRes.json() as { runs: RunRow[] }
+      setAllRuns(runs.map(toRun))
+      setError('')
+      if (profileRes.ok) setWeekGoalKm((await profileRes.json()).profile?.weeklyKmGoal ?? null)
+      if (goalsRes.ok) {
+        const { goals } = await goalsRes.json() as { goals: RunningGoal[] }
+        setRunningGoal(goals.find(g => g.category === 'running' && g.status === 'active') ?? null)
+      }
+    } catch {
+      setError('Nie udało się wczytać biegów. Sprawdź połączenie z bazą.')
+      setAllRuns(prev => prev ?? [])
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const view = useMemo(() => {
+    const runs = allRuns ?? []
+    const days = RANGE_DAYS[rangeFilter]
+    const now = Date.now()
+    const since = now - days * 86400000
+    const prevSince = now - 2 * days * 86400000
+
+    const pr5 = bestTimeFor(runs, 5)
+    const pr10 = bestTimeFor(runs, 10)
+    const prHalf = bestTimeFor(runs, 21.0975)
+    const prIds = new Set([pr5?.runId, pr10?.runId, prHalf?.runId].filter(Boolean))
+    const withPR = runs.map(r => ({ ...r, isPR: prIds.has(r.id) }))
+
+    const inRange = withPR.filter(r => r.ranAt.getTime() >= since)
+    const prevRange = withPR.filter(r => r.ranAt.getTime() >= prevSince && r.ranAt.getTime() < since)
+
+    const totalKm = inRange.reduce((s, r) => s + r.distanceKm, 0)
+    const prevKm = prevRange.reduce((s, r) => s + r.distanceKm, 0)
+    const totalSec = inRange.reduce((s, r) => s + r.durationSeconds, 0)
+    const avgPace = avgPaceOf(inRange)
+    const prevPace = avgPaceOf(prevRange)
+
+    const weekStart = startOfWeek().getTime()
+    const weekRuns = withPR.filter(r => r.ranAt.getTime() >= weekStart)
+
+    const last7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date()
+      d.setHours(0, 0, 0, 0)
+      d.setDate(d.getDate() - (6 - i))
+      const next = d.getTime() + 86400000
+      return {
+        label: d.toLocaleDateString('pl-PL', { weekday: 'short' }).slice(0, 2),
+        km: withPR.filter(r => r.ranAt.getTime() >= d.getTime() && r.ranAt.getTime() < next).reduce((s, r) => s + r.distanceKm, 0),
+      }
+    })
+
+    return {
+      runs: withPR,
+      inRange,
+      totalKm,
+      kmDeltaPct: prevKm > 0 ? Math.round(((totalKm - prevKm) / prevKm) * 100) : null,
+      avgPace,
+      paceDelta: avgPace && prevPace ? Math.round(avgPace - prevPace) : null,
+      totalHours: totalSec / 3600,
+      avgRunMinutes: inRange.length ? Math.round(totalSec / inRange.length / 60) : 0,
+      pr5, pr10, prHalf,
+      weekKm: weekRuns.reduce((s, r) => s + r.distanceKm, 0),
+      weekCount: weekRuns.length,
+      weekSec: weekRuns.reduce((s, r) => s + r.durationSeconds, 0),
+      last7,
+    }
+  }, [allRuns, rangeFilter])
+
   const filteredRuns = useMemo(() => {
-    if (typeFilter === 'all') return runs
-    return runs.filter(r => r.type === typeFilter)
-  }, [runs, typeFilter])
+    const list = typeFilter === 'all' ? view.inRange : view.inRange.filter(r => r.type === typeFilter)
+    return list.slice(0, 25)
+  }, [view.inRange, typeFilter])
 
-  const featuredRun = useMemo(() =>
-    runs.find(r => r.isToday && r.routePath) ?? runs.find(r => r.routePath) ?? runs[0],
-  [runs])
+  const lastRun = view.runs[0]
 
+  // ── Animations ────────────────────────────────────────────────────────────
   useGSAP(() => {
+    if (!allRuns) return
     const tl = gsap.timeline({ delay: 0.05 })
-
-    tl.from('.run-topbar', { opacity:0, y:-8, duration:0.4, ease:'expo.out' })
-    tl.from('.hero-card',  { opacity:0, y:16, duration:0.5, stagger:0.08, ease:'expo.out' }, '-=0.2')
+    tl.from('.hero-card',  { opacity:0, y:16, duration:0.5, stagger:0.08, ease:'expo.out' })
     tl.from('.run-list-card, .side-card', { opacity:0, y:14, duration:0.45, stagger:0.08, ease:'expo.out' }, '-=0.25')
     tl.from('.bottom-card', { opacity:0, y:12, duration:0.4, stagger:0.07, ease:'expo.out' }, '-=0.2')
-    tl.from('.run-item',   { opacity:0, x:-10, duration:0.35, stagger:0.06, ease:'expo.out' }, '-=0.5')
+  }, { scope: containerRef, dependencies: [allRuns === null] })
 
-    tl.call(() => {
-      animateCounter('cnt-distance', stats.totalDistanceKm, 1100, v => `${v.toFixed(1)} km`)
-      animateCounter('cnt-pace',     stats.avgPaceSecondsPerKm, 900, v => {
-        const m = Math.floor(v / 60); const s = Math.round(v % 60)
-        return `${m}:${String(s).padStart(2, '0')}`
-      })
-      animateCounter('cnt-hours', stats.totalHours, 1000, v => `${v.toFixed(1)}h`)
-
+  useEffect(() => {
+    if (!allRuns) return
+    animateCounter('cnt-distance', view.totalKm, 1100, v => `${v.toFixed(1)} km`)
+    animateCounter('cnt-pace', view.avgPace, 900, v => (view.avgPace ? fmtPace(v) : '—'))
+    animateCounter('cnt-hours', view.totalHours, 1000, v => `${v.toFixed(1)}h`)
+    const t = setTimeout(() => {
       document.querySelectorAll<HTMLElement>('.pace-bar').forEach((b, i) => {
         setTimeout(() => { b.style.height = `${b.dataset.h}%` }, i * 70)
       })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [allRuns, view])
 
-      document.querySelectorAll<HTMLElement>('.hr-zone-fill').forEach((z, i) => {
-        setTimeout(() => { z.style.width = `${z.dataset.w}%` }, i * 100)
-      })
-    }, [], '-=0.5')
-  }, { scope: containerRef })
-
-  useGSAP(() => {
-    const cards = containerRef.current?.querySelectorAll('.hero-card, .bottom-card, .side-card')
-    cards?.forEach(card => {
-      card.addEventListener('mouseenter', () => gsap.to(card, { y:-3, duration:0.25, ease:'power2.out' }))
-      card.addEventListener('mouseleave', () => gsap.to(card, { y:0,  duration:0.25, ease:'power2.out' }))
-    })
-  }, { scope: containerRef })
+  const fmtOpt = (pr: { seconds: number } | null) => (pr ? fmtDuration(pr.seconds) : '—')
 
   return (
-    <div ref={containerRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
-      <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div ref={containerRef} className="flex min-h-full bg-[#080808] text-[#f0ece4] font-sans">
+      <main className="flex-1 overflow-x-hidden">
 
         {/* TOPBAR */}
-        <div className="run-topbar px-4 md:px-7 pt-5 md:pt-6 pb-2 flex justify-between items-end">
+        <div className="run-topbar px-4 md:px-7 pt-5 md:pt-6 pb-2 flex flex-wrap gap-3 justify-between items-end">
           <div>
             <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">
-              Bieganie · {rangeFilter === '7d' ? '7 dni' : rangeFilter === '30d' ? '30 dni' : rangeFilter === '90d' ? '90 dni' : 'rok'}
+              Bieganie · {RANGE_LONG[rangeFilter]}
             </p>
             <h1 className="font-display text-[24px] font-black">
               Twoje <em className="not-italic text-[#f5a03a]">biegi</em>
@@ -392,7 +401,7 @@ export default function RunningOverview({
             <div className="flex gap-1.5">
               {(['7d', '30d', '90d', 'year'] as RangeFilter[]).map(r => (
                 <button key={r} onClick={() => setRangeFilter(r)}
-                  className={`px-3.5 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-[1.2px] transition-all border cursor-none ${
+                  className={`px-3 md:px-3.5 py-1.5 rounded-lg text-[11px] font-mono uppercase tracking-[1.2px] transition-all border ${
                     rangeFilter === r
                       ? 'bg-[#f5a03a]/[0.08] border-[#f5a03a]/25 text-[#f5a03a]'
                       : 'bg-[#111] border-[#1e1e1e] text-[#888] hover:border-[#333]'
@@ -400,14 +409,14 @@ export default function RunningOverview({
               ))}
             </div>
             <button onClick={() => setShowAddRun(true)}
-              className="ml-2 px-4 py-1.5 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none flex items-center gap-1.5">
+              className="ml-1 px-4 py-1.5 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px active:scale-[0.98] transition-all flex items-center gap-1.5">
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                 <path d="M5.5 2v7M2 5.5h7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
               <span className="hidden sm:inline">Dodaj bieg</span>
             </button>
             <button onClick={() => router.push('/running/import')}
-              className="px-4 py-1.5 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:border-[#2e2e2e] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none flex items-center gap-1.5">
+              className="px-4 py-1.5 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:border-[#2e2e2e] hover:-translate-y-px active:scale-[0.98] transition-all flex items-center gap-1.5">
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                 <path d="M5.5 8V2M3 4.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M2 9.5h7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -418,95 +427,107 @@ export default function RunningOverview({
         </div>
 
         <div className="px-4 md:px-7 pb-6 md:pb-7 pt-3">
+          {error && (
+            <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>
+          )}
 
-          {/* HERO GRID */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-2.5 mb-3">
-            <HeroCard accent tag="Dystans" trend="+12%" trendUp valueColor="orange"
-              value="0" sub={`${stats.runCount} biegów · 30 dni`}
-              animateId="cnt-distance"
-            />
-            <HeroCard tag="Średnie tempo" trend={`-${Math.abs(stats.paceDeltaSeconds)}s`} trendUp valueColor="white"
-              value="0:00" sub="vs. miesiąc temu"
-              animateId="cnt-pace"
-            />
-            <HeroCard tag="Czas biegu" valueColor="white"
-              value="0h" sub={`Średnio ${stats.avgRunMinutes} min / bieg`}
-              animateId="cnt-hours"
-            />
-            <HeroCard tag="Rekord 5 km" trend="PR" trendUp valueColor="lime"
-              value={fmtDuration(stats.pr5kSeconds)} sub={`poprawa o 0:${Math.abs(stats.pr5kDeltaSeconds)}`}
-            />
-          </div>
+          {allRuns === null ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+              {[0, 1, 2, 3].map(i => <div key={i} className="h-[92px] rounded-2xl bg-[#0f0f0f] border border-[#1a1a1a] animate-pulse" />)}
+            </div>
+          ) : (
+            <>
+              {/* HERO GRID */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-2.5 mb-3">
+                <HeroCard accent tag="Dystans" valueColor="orange"
+                  trend={view.kmDeltaPct != null ? `${view.kmDeltaPct >= 0 ? '+' : ''}${view.kmDeltaPct}%` : undefined}
+                  trendUp={(view.kmDeltaPct ?? 0) >= 0}
+                  value="0" sub={`${view.inRange.length} biegów · ${RANGE_LONG[rangeFilter]}`}
+                  animateId="cnt-distance"
+                />
+                <HeroCard tag="Średnie tempo" valueColor="white"
+                  trend={view.paceDelta ? `${view.paceDelta > 0 ? '+' : ''}${view.paceDelta}s` : undefined}
+                  trendUp={(view.paceDelta ?? 0) <= 0}
+                  value="—" sub="vs. poprzedni okres"
+                  animateId="cnt-pace"
+                />
+                <HeroCard tag="Czas biegu" valueColor="white"
+                  value="0h" sub={view.inRange.length ? `Średnio ${view.avgRunMinutes} min / bieg` : 'brak biegów w okresie'}
+                  animateId="cnt-hours"
+                />
+                <HeroCard tag="Rekord 5 km" valueColor="lime"
+                  trend={view.pr5 ? 'PR' : undefined} trendUp
+                  value={fmtOpt(view.pr5)} sub={view.pr5 ? 'szacowany z biegów ≥ 5 km' : 'brak biegu ≥ 5 km'}
+                />
+              </div>
 
-          {/* MAIN GRID */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3 mb-3">
+              {/* MAIN GRID */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-3 mb-3">
 
-            {/* RUN LIST */}
-            <div className="run-list-card bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-[18px]">
-              <div className="flex justify-between items-center mb-3.5">
-                <div className="font-display text-[14px] font-black">Ostatnie biegi</div>
-                <div className="flex gap-1.5">
-                  {(['all', 'tempo', 'long', 'interval'] as TypeFilter[]).map(t => (
-                    <button key={t} onClick={() => setTypeFilter(t)}
-                      className={`px-2.5 py-1 rounded-md text-[9px] font-mono uppercase tracking-[1px] transition-all border cursor-none ${
-                        typeFilter === t
-                          ? 'bg-[#f5a03a]/[0.08] border-[#f5a03a]/25 text-[#f5a03a]'
-                          : 'bg-white/[0.02] border-white/[0.06] text-[#666] hover:text-[#f5a03a] hover:border-[#f5a03a]/20'
-                      }`}>{TYPE_LABELS[t]}</button>
+                {/* RUN LIST */}
+                <div className="run-list-card bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-[18px]">
+                  <div className="flex flex-wrap gap-2 justify-between items-center mb-3.5">
+                    <div className="font-display text-[14px] font-black">Ostatnie biegi</div>
+                    <div className="flex gap-1.5">
+                      {(['all', 'tempo', 'long', 'interval'] as TypeFilter[]).map(t => (
+                        <button key={t} onClick={() => setTypeFilter(t)}
+                          className={`px-2.5 py-1 rounded-md text-[9px] font-mono uppercase tracking-[1px] transition-all border ${
+                            typeFilter === t
+                              ? 'bg-[#f5a03a]/[0.08] border-[#f5a03a]/25 text-[#f5a03a]'
+                              : 'bg-white/[0.02] border-white/[0.06] text-[#666] hover:text-[#f5a03a] hover:border-[#f5a03a]/20'
+                          }`}>{TYPE_LABELS[t]}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {filteredRuns.length === 0 ? (
+                    <div className="text-center py-10 text-[12px] text-[#555]">
+                      {allRuns.length === 0
+                        ? <>Nie masz jeszcze żadnych biegów. <button onClick={() => setShowAddRun(true)} className="text-[#f5a03a] hover:underline">Dodaj pierwszy</button> albo zaimportuj screenshot.</>
+                        : typeFilter === 'all' ? `Brak biegów w okresie: ${RANGE_LONG[rangeFilter]}` : `Brak biegów typu ${TYPE_LABELS[typeFilter]}`}
+                    </div>
+                  ) : filteredRuns.map(run => (
+                    <RunListItem key={run.id} run={run} onClick={() => router.push(`/running/${run.id}`)} />
                   ))}
+                </div>
+
+                {/* SIDE COLUMN */}
+                <div className="flex flex-col gap-2.5">
+                  <DistanceChart days={view.last7} />
+                  {lastRun && <LastRunCard run={lastRun} onClick={() => router.push(`/running/${lastRun.id}`)} />}
                 </div>
               </div>
 
-              {filteredRuns.length === 0 ? (
-                <div className="text-center py-10 text-[12px] text-[#555]">
-                  Brak biegów typu {TYPE_LABELS[typeFilter]}
-                </div>
-              ) : filteredRuns.map(run => (
-                <RunListItem key={run.id} run={run} onClick={() => router.push(`/running/${run.id}`)} />
-              ))}
-            </div>
-
-            {/* SIDE COLUMN */}
-            <div className="flex flex-col gap-2.5">
-              <PaceChart data={stats.paceLast7Days} avgPace={stats.avgPaceSecondsPerKm} />
-              {featuredRun && (
-                <MiniMap
-                  routePath={featuredRun.routePath}
-                  distanceKm={featuredRun.distanceKm}
-                  elevationGain={featuredRun.elevationGainM}
-                />
-              )}
-              {featuredRun?.hrZones && (
-                <HrZones zones={featuredRun.hrZones} durationSeconds={featuredRun.durationSeconds} />
-              )}
-            </div>
-          </div>
-
-          {/* BOTTOM ROW */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-            <BottomCard title="Cele tygodnia" items={[
-              { label:'Dystans',       value:`${stats.weekDistanceKm.toFixed(1)} / ${stats.weekGoalKm} km`, accent:true },
-              { label:'Liczba biegów', value:`${stats.weekRunCount} / ${stats.weekRunGoal}` },
-              { label:'Czas',          value:`${Math.floor(stats.totalHours)}h ${Math.round((stats.totalHours % 1) * 60)}m` },
-            ]} />
-            <BottomCard title="Rekordy osobiste" items={[
-              { label:'5 km',        value:goals.pr5k.current, accent:true },
-              { label:'10 km',       value:goals.pr10k.current },
-              { label:'Półmaraton',  value:goals.prHalf.current },
-            ]} />
-            <BottomCard title="Następny cel" items={[
-              { label:goals.nextRace.name, value:goals.nextRace.targetTime, accent:true },
-              { label:'Termin',            value:goals.nextRace.date },
-              { label:'Tygodni',           value:String(goals.nextRace.weeksLeft) },
-            ]} />
-          </div>
+              {/* BOTTOM ROW */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                <BottomCard title="Ten tydzień" items={[
+                  { label: 'Dystans', value: weekGoalKm ? `${view.weekKm.toFixed(1)} / ${weekGoalKm} km` : `${view.weekKm.toFixed(1)} km`, accent: true },
+                  { label: 'Liczba biegów', value: String(view.weekCount) },
+                  { label: 'Czas', value: `${Math.floor(view.weekSec / 3600)}h ${Math.round((view.weekSec % 3600) / 60)}m` },
+                ]} />
+                <BottomCard title="Rekordy osobiste" items={[
+                  { label: '5 km',       value: fmtOpt(view.pr5), accent: true },
+                  { label: '10 km',      value: fmtOpt(view.pr10) },
+                  { label: 'Półmaraton', value: fmtOpt(view.prHalf) },
+                ]} />
+                <BottomCard title="Cel biegowy" items={runningGoal ? [
+                  { label: runningGoal.name, value: `${Number(runningGoal.target_value)} ${runningGoal.unit ?? ''}`, accent: true },
+                  { label: 'Postęp', value: `${runningGoal.progress}%` },
+                  { label: 'Termin', value: runningGoal.target_date ? new Date(runningGoal.target_date).toLocaleDateString('pl-PL') : '—' },
+                ] : [
+                  { label: 'Brak celu biegowego', value: '—' },
+                  { label: 'Dodaj go w zakładce Cele', value: '→' },
+                ]} />
+              </div>
+            </>
+          )}
         </div>
       </main>
 
       {showAddRun && (
         <AddRunModal
           onClose={() => setShowAddRun(false)}
-          onSaved={() => { setShowAddRun(false); router.refresh() }}
+          onSaved={() => { setShowAddRun(false); load() }}
         />
       )}
     </div>

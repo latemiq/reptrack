@@ -1,12 +1,6 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-)
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getUserId, unauthorized } from '@/lib/api-auth'
 
 interface IncomingSet {
   weightKg: number | null
@@ -18,6 +12,7 @@ interface IncomingSet {
 
 interface IncomingExercise {
   exerciseId: string
+  name?: string
   sets: IncomingSet[]
 }
 
@@ -29,9 +24,35 @@ interface IncomingWorkout {
   exercises: IncomingExercise[]
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function GET(req: NextRequest) {
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
+
+  const { searchParams } = new URL(req.url)
+  const requestedLimit = Number(searchParams.get('limit') ?? '30')
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 100) : 30
+
+  const { data, error } = await supabaseAdmin()
+    .from('workouts')
+    .select('id, template_id, name, notes, started_at, finished_at, duration_seconds, total_tonnage, workout_sets(exercise_id, exercise_name, exercise_position, set_number, reps, weight_kg, rpe)')
+    .eq('user_id', userId)
+    .not('finished_at', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error('Workouts fetch error:', error)
+    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+  }
+
+  return NextResponse.json({ workouts: data ?? [] })
+}
+
 export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
 
   const workout = await req.json().catch(() => null) as IncomingWorkout | null
 
@@ -55,6 +76,7 @@ export async function POST(req: NextRequest) {
       return s + set.weightKg * set.reps
     }, 0), 0)
 
+  const supabase = supabaseAdmin()
   const { data: workoutRow, error: workoutErr } = await supabase
     .from('workouts')
     .insert({
@@ -71,7 +93,8 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (workoutErr || !workoutRow) {
-    return NextResponse.json({ error: 'Insert workout failed', details: workoutErr }, { status: 500 })
+    console.error('Insert workout error:', workoutErr)
+    return NextResponse.json({ error: 'Zapis treningu nie powiódł się' }, { status: 500 })
   }
 
   const setsToInsert = workout.exercises.flatMap((ex, exPos) =>
@@ -80,6 +103,7 @@ export async function POST(req: NextRequest) {
       .map((s, idx) => ({
         workout_id: workoutRow.id,
         exercise_id: ex.exerciseId,
+        exercise_name: typeof ex.name === 'string' ? ex.name : null,
         exercise_position: exPos,
         set_number: idx + 1,
         weight_kg: s.weightKg,
@@ -92,9 +116,18 @@ export async function POST(req: NextRequest) {
   if (setsToInsert.length > 0) {
     const { error: setsErr } = await supabase.from('workout_sets').insert(setsToInsert)
     if (setsErr) {
+      console.error('Insert sets error:', setsErr)
       await supabase.from('workouts').delete().eq('id', workoutRow.id)
-      return NextResponse.json({ error: 'Insert sets failed', details: setsErr }, { status: 500 })
+      return NextResponse.json({ error: 'Zapis serii nie powiódł się' }, { status: 500 })
     }
+  }
+
+  if (workout.templateId && UUID_RE.test(workout.templateId)) {
+    await supabase
+      .from('workout_templates')
+      .update({ last_used_at: new Date(finishedAt).toISOString() })
+      .eq('id', workout.templateId)
+      .eq('user_id', userId)
   }
 
   return NextResponse.json({ id: workoutRow.id, success: true })

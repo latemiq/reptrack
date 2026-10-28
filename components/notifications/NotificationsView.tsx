@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNotificationsStore, selectUnreadCount, type NotifCategory } from '@/lib/stores/useNotificationsStore'
+import { timeAgo } from '@/lib/stats'
 
 const FILTERS: { key: NotifCategory | 'all'; label: string }[] = [
   { key: 'all',      label: 'Wszystkie' },
@@ -55,8 +56,10 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export default function NotificationsView() {
   const [active, setActive] = useState<NotifCategory | 'all'>('all')
-  const { notifications, markRead, markAllRead } = useNotificationsStore()
+  const { notifications, loaded, markRead, markAllRead, fetchNotifications } = useNotificationsStore()
   const unreadCount = useNotificationsStore(selectUnreadCount)
+
+  useEffect(() => { fetchNotifications() }, [fetchNotifications])
 
   const filtered = active === 'all'
     ? notifications
@@ -117,7 +120,11 @@ export default function NotificationsView() {
       </div>
 
       {/* Notifications list */}
-      {filtered.length === 0 ? (
+      {!loaded && notifications.length === 0 ? (
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2].map(i => <div key={i} className="h-[84px] rounded-2xl bg-[#0f0f0f] border border-[#1a1a1a] animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-12 h-12 rounded-full bg-[#141414] border border-[#1e1e1e] flex items-center justify-center mb-4 text-[#333]">
             <BellIcon />
@@ -167,7 +174,7 @@ export default function NotificationsView() {
                     {notif.body}
                   </p>
                   <span className="font-dm-mono text-[10px] text-[#333] uppercase tracking-wider mt-2 block">
-                    {notif.time}
+                    {timeAgo(notif.at)}
                   </span>
                 </div>
               </div>

@@ -1,61 +1,57 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-)
+import { supabaseAdmin } from '@/lib/supabase/admin'
+import { ensureProfile, getUserId, unauthorized } from '@/lib/api-auth'
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, age, height_cm, weight_kg, location, level, bio, created_at')
-    .eq('id', userId)
-    .single()
+  const supabase = supabaseAdmin()
+  await ensureProfile(userId)
 
-  if (error || !data) {
-    return NextResponse.json({ profile: {} })
-  }
-
-  let lastWeight: number | null = null
-  try {
-    const { data: m } = await supabase
-      .from('body_measurements')
+  const [{ data }, { data: lastLog }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, age, height_cm, weight_kg, location, level, bio, weekly_days, weekly_km_goal, onboarded_at, created_at')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabase
+      .from('weight_logs')
       .select('weight_kg')
       .eq('user_id', userId)
-      .order('recorded_at', { ascending: false })
+      .order('logged_at', { ascending: false })
       .limit(1)
-      .single()
-    lastWeight = m?.weight_kg ?? null
-  } catch {
-    // body_measurements table doesn't exist yet — OK
-  }
+      .maybeSingle(),
+  ])
+
+  if (!data) return NextResponse.json({ profile: {} })
 
   return NextResponse.json({
     profile: {
-      age:      data.age,
-      heightCm: data.height_cm,
-      weightKg: lastWeight ?? data.weight_kg ?? null,
-      location: data.location,
-      level:    data.level,
-      bio:      data.bio,
-    }
+      age:          data.age,
+      heightCm:     data.height_cm,
+      weightKg:     lastLog?.weight_kg != null ? Number(lastLog.weight_kg) : data.weight_kg != null ? Number(data.weight_kg) : null,
+      location:     data.location,
+      level:        data.level,
+      bio:          data.bio,
+      weeklyDays:   data.weekly_days,
+      weeklyKmGoal: data.weekly_km_goal != null ? Number(data.weekly_km_goal) : null,
+      onboarded:    Boolean(data.onboarded_at),
+    },
   })
 }
 
 export async function PATCH(req: Request) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = await getUserId()
+  if (!userId) return unauthorized()
 
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Nieprawidłowy JSON' }, { status: 400 })
+  }
+
   const updates: Record<string, unknown> = {}
-  const ALLOWED = ['age', 'height_cm', 'weight_kg', 'location', 'level', 'bio']
-
+  const ALLOWED = ['age', 'height_cm', 'weight_kg', 'location', 'level', 'bio', 'weekly_days', 'weekly_km_goal']
   for (const key of ALLOWED) {
     if (key in body) updates[key] = body[key]
   }
@@ -66,13 +62,12 @@ export async function PATCH(req: Request) {
 
   updates.updated_at = new Date().toISOString()
 
-  const { error } = await supabase
-    .from('profiles')
-    .update(updates)
-    .eq('id', userId)
+  await ensureProfile(userId)
+  const { error } = await supabaseAdmin().from('profiles').update(updates).eq('id', userId)
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Profile update error:', error)
+    return NextResponse.json({ error: 'Zapis nie powiódł się' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })
