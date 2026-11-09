@@ -1,7 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-
-const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+import { AUTH_BYPASS } from '@/lib/auth-bypass'
 
 const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',

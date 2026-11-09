@@ -5,8 +5,7 @@ import { Stats } from '@/components/landing/Stats'
 import { CTA } from '@/components/landing/CTA'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-
-const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+import { AUTH_BYPASS } from '@/lib/auth-bypass'
 
 export default function LandingPage() {
   if (AUTH_BYPASS) {

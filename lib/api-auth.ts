@@ -2,7 +2,9 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-export const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+import { AUTH_BYPASS } from '@/lib/auth-bypass'
+
+export { AUTH_BYPASS }
 const DEV_USER_ID = 'dev_user'
 
 /** Clerk user ID, or a fixed dev ID when NEXT_PUBLIC_BYPASS_AUTH=true. */

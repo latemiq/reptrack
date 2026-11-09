@@ -2,8 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import JoinInvite from '@/components/trainer/JoinInvite'
 import { normalizeInviteCode } from '@/lib/trainer'
-
-const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+import { AUTH_BYPASS } from '@/lib/auth-bypass'
 
 export const metadata = {
   title: 'RepTrack — Zaproszenie od trenera',

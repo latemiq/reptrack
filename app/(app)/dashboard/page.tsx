@@ -1,8 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import Dashboard from '@/components/dashboard/Dashboard'
-
-const AUTH_BYPASS = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true'
+import { AUTH_BYPASS } from '@/lib/auth-bypass'
 
 export const metadata = {
   title: 'RepTrack — Dashboard',
