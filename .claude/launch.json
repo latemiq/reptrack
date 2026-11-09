@@ -39,6 +39,15 @@
         "set NEXT_PUBLIC_BYPASS_AUTH=false&& set NEXT_DIST_DIR=.next-preview&& npx next dev -p 3003"
       ],
       "port": 3003
+    },
+    {
+      "name": "dev-athlete",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set NEXT_PUBLIC_BYPASS_AUTH=true&& set DEV_BYPASS_USER_ID=seed_client_anna&& set NEXT_DIST_DIR=.next-preview&& npx next dev -p 3004"
+      ],
+      "port": 3004
     }
   ]
 }

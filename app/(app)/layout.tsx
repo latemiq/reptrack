@@ -192,6 +192,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     : isTrainer ? [...TRAINER_NAV, ...TRAINER_ACCOUNT]
     : [...NAV_ITEMS.filter(i => i.href !== '/notifications'), ACCOUNT_ITEMS[0]]
   const profileHref = isTrainer ? '/settings' : '/profile'
+  const focusMode = pathname.startsWith('/gym/log')
   const activeNavItem = [...sidebarItems, ...accountItems].find(item => isActive(pathname, item))
 
   const userInitials = user
@@ -303,14 +304,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Scrollable page */}
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+        <main className={`flex-1 overflow-y-auto lg:pb-0 ${focusMode ? 'pb-0' : 'pb-20'}`}>
           {role === 'athlete' && <InstallPrompt />}
           {children}
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-bottom">
+      {/* Mobile bottom nav (hidden during a live workout — the screen needs the space) */}
+      <nav className={`lg:hidden ${focusMode ? '!hidden' : ''} fixed bottom-0 left-0 right-0 z-50 bg-[#0f0f0f] border-t border-[#1e1e1e] flex justify-around px-2 py-2 safe-area-bottom`}>
         {mobileItems.map((item) => {
           const active = isActive(pathname, item)
           return (

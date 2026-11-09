@@ -21,6 +21,12 @@ export interface ExerciseEntry {
   targetWeight: number | null
   restSeconds: number
   notes?: string
+  /** Upper end of a rep range ("6–8"); targetReps is the lower end. */
+  targetRepsMax?: number | null
+  /** Trainer prescription to show above the sets, e.g. "4×6–8 @ RPE 8". */
+  plan?: string
+  /** Sets from the last time this exercise was done ("Poprzednio" column). */
+  previous?: { weightKg: number | null; reps: number | null }[]
   sets: SetEntry[]
 }
 
@@ -69,6 +75,21 @@ const newId = () => crypto.randomUUID()
 
 const emptyTimer: RestTimerState = { isActive: false, totalSeconds: 0, remainingSeconds: 0, exerciseId: null }
 
+/** All planned sets up front: weight from the plan, else from the same set last time. */
+function plannedSets(ex: Omit<ExerciseEntry, 'sets'>): SetEntry[] {
+  const count = Math.max(1, ex.targetSets || 1)
+  return Array.from({ length: count }, (_, i) => {
+    const prev = ex.previous?.[Math.min(i, (ex.previous?.length ?? 1) - 1)]
+    return {
+      id: newId(),
+      weightKg: ex.targetWeight ?? prev?.weightKg ?? null,
+      reps: ex.targetReps || prev?.reps || null,
+      rpe: null,
+      done: false,
+    }
+  })
+}
+
 // ─── STORE ───────────────────────────────────────────────────────────────────
 
 export const useWorkoutStore = create<WorkoutStore>()(
@@ -84,10 +105,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
             name,
             templateId: templateId ?? null,
             startedAt: Date.now(),
-            exercises: exercises.map(ex => ({
-              ...ex,
-              sets: [{ id: newId(), weightKg: ex.targetWeight, reps: ex.targetReps, rpe: null, done: false }],
-            })),
+            exercises: exercises.map(ex => ({ ...ex, sets: plannedSets(ex) })),
           },
         })
       },
@@ -105,7 +123,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
       addExercise: (exercise) => {
         const w = get().activeWorkout
         if (!w) return
-        set({ activeWorkout: { ...w, exercises: [...w.exercises, { ...exercise, sets: [] }] } })
+        set({ activeWorkout: { ...w, exercises: [...w.exercises, { ...exercise, sets: plannedSets(exercise) }] } })
       },
 
       removeExercise: (exerciseId) => {
@@ -201,7 +219,8 @@ export const useWorkoutStore = create<WorkoutStore>()(
       addRestTime: (extra) => {
         const t = get().restTimer
         if (!t.isActive) return
-        set({ restTimer: { ...t, remainingSeconds: t.remainingSeconds + extra, totalSeconds: t.totalSeconds + extra } })
+        // extra may be negative (−15 s); never below zero.
+        set({ restTimer: { ...t, remainingSeconds: Math.max(0, t.remainingSeconds + extra), totalSeconds: Math.max(1, t.totalSeconds + extra) } })
       },
     }),
     {

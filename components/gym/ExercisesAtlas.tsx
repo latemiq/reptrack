@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import GymTabs from '@/components/gym/GymTabs'
 import {
   MUSCLE_GROUP_PL, EQUIPMENT_PL, LEVEL_PL, MUSCLE_PL,
   FORCE_PL, MECHANIC_PL, translate,
@@ -340,13 +341,12 @@ export default function ExercisesAtlas({ pickMode = false, onPick }: ExercisesAt
     <div ref={containerRef} className={pickMode ? '' : 'flex h-screen bg-[#080808] text-[#f0ece4] overflow-hidden'}>
       <main className={pickMode ? '' : 'flex-1 overflow-y-auto px-4 md:px-7 py-5 md:py-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'}>
 
+        {!pickMode && <div className="max-w-2xl mb-4"><GymTabs /></div>}
         {!pickMode && (
           <div className="mb-6 flex justify-between items-end">
             <div>
-              <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">Siłownia · katalog</p>
-              <h1 className="font-display text-[24px] font-black">
-                Atlas <em className="not-italic text-[#f5a03a]">Ćwiczeń</em>
-              </h1>
+              <p className="text-[11px] font-mono text-[#666] uppercase tracking-[1.5px]">Siłownia</p>
+              <h1 className="font-display text-[24px] font-black leading-tight">Ćwiczenia</h1>
               <p className="text-[12px] text-[#666] mt-1">
                 {loading ? '...' : `${filtered.length} z ${exercises.length} ćwiczeń`}
               </p>

@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { TemplateExercise, WorkoutTemplate } from '@/lib/templates'
+import { relativeDay } from '@/lib/stats'
+import { fmtKg } from '@/lib/gym-stats'
 import ExercisePicker from '@/components/gym/ExercisePicker'
+import GymTabs from '@/components/gym/GymTabs'
 
 interface Draft {
   id: string | null
@@ -11,40 +14,71 @@ interface Draft {
   exercises: TemplateExercise[]
 }
 
-const emptyDraft = (): Draft => ({ id: null, name: '', exercises: [] })
+const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
+const fmtRest = (s: number) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'brak')
+const repsLabel = (e: TemplateExercise) => (e.targetRepsMax && e.targetRepsMax !== e.targetReps ? `${e.targetReps}–${e.targetRepsMax}` : String(e.targetReps))
 
+/** Rough session length: each set ≈ 45 s of work plus the rest after it. */
+const estimateMinutes = (ex: TemplateExercise[]) => Math.round(ex.reduce((s, e) => s + e.targetSets * (45 + e.restSeconds), 0) / 60)
+
+const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')))
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex-1 min-w-0 rounded-lg bg-[#0a0a0a] border border-[#222] focus-within:border-[#c8f53a]/50 px-2 py-1 text-center">
+      <span className="block text-[11px] text-[#666]">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+const cell = 'w-full bg-transparent text-center text-[15px] text-[#f0ece4] outline-none'
+
+/** Templates: list → editor with draggable exercise cards and per-exercise sets/reps/kg/rest. */
 export default function TemplatesEditor() {
   const router = useRouter()
+  const params = useSearchParams()
   const [templates, setTemplates] = useState<WorkoutTemplate[] | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [openIdx, setOpenIdx] = useState<number | null>(0)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const load = () =>
+  const load = useCallback(() =>
     fetch('/api/gym/templates')
-      .then(async r => { if (!r.ok) throw new Error(); return r.json() })
-      .then(d => setTemplates(d.templates))
-      .catch(() => { setTemplates([]); setError('Nie udało się wczytać szablonów.') })
+      .then(r => (r.ok ? r.json() : Promise.reject()))
+      .then(d => setTemplates(d.templates as WorkoutTemplate[]))
+      .catch(() => { setTemplates([]); setError('Nie udało się wczytać szablonów.') }), [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
-  const updateExercise = (idx: number, patch: Partial<TemplateExercise>) =>
-    setDraft(d => d && { ...d, exercises: d.exercises.map((e, i) => (i === idx ? { ...e, ...patch } : e)) })
+  // Deep links from the gym home: ?new=1 or ?edit=<id>.
+  useEffect(() => {
+    if (!templates || draft) return
+    const editId = params.get('edit')
+    const t = editId ? templates.find(x => x.id === editId) : null
+    if (t) { setDraft({ id: t.id, name: t.name, exercises: t.exercises }); setOpenIdx(null) }
+    else if (params.get('new')) { setDraft({ id: null, name: '', exercises: [] }); setOpenIdx(null) }
+  }, [templates, params, draft])
 
-  const moveExercise = (idx: number, dir: -1 | 1) =>
-    setDraft(d => {
-      if (!d) return d
-      const j = idx + dir
-      if (j < 0 || j >= d.exercises.length) return d
-      const arr = [...d.exercises]
-      ;[arr[idx], arr[j]] = [arr[j], arr[idx]]
-      return { ...d, exercises: arr }
-    })
+  const close = () => { setDraft(null); setError(''); router.replace('/gym/templates') }
 
-  const handleSave = async () => {
+  const patchEx = (idx: number, p: Partial<TemplateExercise>) =>
+    setDraft(d => d && { ...d, exercises: d.exercises.map((e, i) => (i === idx ? { ...e, ...p } : e)) })
+
+  const move = (from: number, to: number) => setDraft(d => {
+    if (!d || to < 0 || to >= d.exercises.length || from === to) return d
+    const arr = [...d.exercises]
+    const [item] = arr.splice(from, 1)
+    arr.splice(to, 0, item)
+    return { ...d, exercises: arr }
+  })
+
+  const save = async () => {
     if (!draft) return
-    if (!draft.name.trim()) { setError('Podaj nazwę szablonu'); return }
-    if (draft.exercises.length === 0) { setError('Dodaj co najmniej jedno ćwiczenie'); return }
+    if (!draft.name.trim()) { setError('Podaj nazwę szablonu.'); return }
+    if (draft.exercises.length === 0) { setError('Dodaj co najmniej jedno ćwiczenie.'); return }
     setSaving(true)
     setError('')
     const res = await fetch(draft.id ? `/api/gym/templates/${draft.id}` : '/api/gym/templates', {
@@ -53,110 +87,142 @@ export default function TemplatesEditor() {
       body: JSON.stringify({ name: draft.name, exercises: draft.exercises }),
     }).catch(() => null)
     setSaving(false)
-    if (!res?.ok) {
-      const data = await res?.json().catch(() => ({}))
-      setError(data?.error ?? 'Zapis nie powiódł się')
-      return
-    }
-    setDraft(null)
-    load()
+    if (!res?.ok) { setError((await res?.json().catch(() => null))?.error ?? 'Zapis nie powiódł się.'); return }
+    await load()
+    close()
   }
 
-  const handleDelete = async (t: WorkoutTemplate) => {
-    if (!confirm(`Usunąć szablon „${t.name}”?`)) return
-    const res = await fetch(`/api/gym/templates/${t.id}`, { method: 'DELETE' }).catch(() => null)
-    if (res?.ok) setTemplates(ts => (ts ?? []).filter(x => x.id !== t.id))
-    else setError('Nie udało się usunąć szablonu')
+  const remove = async () => {
+    if (!draft?.id || !confirm(`Usunąć szablon „${draft.name}”?`)) return
+    const res = await fetch(`/api/gym/templates/${draft.id}`, { method: 'DELETE' }).catch(() => null)
+    if (!res?.ok) { setError('Nie udało się usunąć szablonu.'); return }
+    await load()
+    close()
   }
 
-  const num = 'w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-[12px] text-[#f0ece4] focus:outline-none focus:border-[#f5a03a]/40'
+  // ── Editor ──
+  if (draft) {
+    const totalSets = draft.exercises.reduce((s, e) => s + e.targetSets, 0)
+    return (
+      <div className="min-h-full bg-[#080808] text-[#f0ece4]">
+        <div className="max-w-2xl mx-auto px-4 md:px-7 pt-4 md:pt-6 pb-8 space-y-3">
+          <div className="flex items-center gap-2">
+            <button onClick={close} aria-label="Wróć do listy" className="w-9 h-9 rounded-xl text-[#888] hover:text-[#f0ece4] cursor-pointer">‹</button>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-mono text-[#666] uppercase tracking-[1.5px]">{draft.id ? 'Szablon' : 'Nowy szablon'}</p>
+              <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="Nazwa, np. Push A" autoFocus={!draft.id}
+                className="w-full bg-transparent font-display text-[22px] font-black outline-none placeholder:text-[#333]" />
+            </div>
+            <button onClick={save} disabled={saving} className="px-4 py-2 rounded-xl bg-[#c8f53a] text-[#0f1a00] text-[13px] font-medium disabled:opacity-60 cursor-pointer">
+              {saving ? 'Zapisuję…' : 'Zapisz'}
+            </button>
+          </div>
+          <p className="text-[12px] text-[#777] px-1">
+            {draft.exercises.length} ćw · ~{estimateMinutes(draft.exercises)} min · {totalSets} serii
+          </p>
 
+          {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
+
+          <div className="space-y-2">
+            {draft.exercises.map((ex, i) => {
+              const open = openIdx === i
+              return (
+                <div key={`${ex.exerciseId}-${i}`}
+                  draggable onDragStart={() => setDragIdx(i)} onDragEnd={() => setDragIdx(null)}
+                  onDragOver={e => { e.preventDefault(); if (dragIdx != null && dragIdx !== i) { move(dragIdx, i); setDragIdx(i) } }}
+                  className={`rounded-2xl bg-[#111] border p-3 transition-colors ${open ? 'border-[#c8f53a]/25' : 'border-[#1e1e1e]'} ${dragIdx === i ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="cursor-grab text-[#555] select-none px-1" aria-hidden="true">⠿</span>
+                    <button onClick={() => setOpenIdx(open ? null : i)} className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer">
+                      <span className="flex-1 min-w-0 truncate text-[14px]">{ex.name}</span>
+                      {!open && <span className="text-[12px] text-[#777]">{ex.targetSets}×{repsLabel(ex)}{ex.targetWeight ? ` · ${fmtKg(ex.targetWeight)} kg` : ''}</span>}
+                    </button>
+                    <div className="flex">
+                      <button onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Wyżej" className="w-7 h-7 text-[#555] hover:text-[#f0ece4] disabled:opacity-20 cursor-pointer">↑</button>
+                      <button onClick={() => move(i, i + 1)} disabled={i === draft.exercises.length - 1} aria-label="Niżej" className="w-7 h-7 text-[#555] hover:text-[#f0ece4] disabled:opacity-20 cursor-pointer">↓</button>
+                      <button onClick={() => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) })} aria-label={`Usuń ${ex.name}`}
+                        className="w-7 h-7 text-[#555] hover:text-red-400 cursor-pointer">×</button>
+                    </div>
+                  </div>
+                  {open && (
+                    <div className="flex gap-1.5 mt-2.5 pl-6">
+                      <Field label="serie">
+                        <input inputMode="numeric" className={cell} value={ex.targetSets}
+                          onChange={e => patchEx(i, { targetSets: Math.max(1, Math.min(20, Number(e.target.value) || 1)) })} />
+                      </Field>
+                      <Field label="powt.">
+                        <div className="flex items-center">
+                          <input inputMode="numeric" className={cell} value={ex.targetReps} aria-label="Powtórzenia od"
+                            onChange={e => patchEx(i, { targetReps: Math.max(1, Number(e.target.value) || 1) })} />
+                          <span className="text-[#555]">–</span>
+                          <input inputMode="numeric" className={cell} value={ex.targetRepsMax ?? ''} placeholder="do" aria-label="Powtórzenia do"
+                            onChange={e => patchEx(i, { targetRepsMax: numOrNull(e.target.value) })} />
+                        </div>
+                      </Field>
+                      <Field label="kg">
+                        <input inputMode="decimal" className={cell} value={ex.targetWeight ?? ''} placeholder="—"
+                          onChange={e => patchEx(i, { targetWeight: numOrNull(e.target.value) })} />
+                      </Field>
+                      <Field label="przerwa">
+                        <select className={`${cell} appearance-none cursor-pointer`} value={ex.restSeconds}
+                          onChange={e => patchEx(i, { restSeconds: Number(e.target.value) })}>
+                          {REST_OPTIONS.map(s => <option key={s} value={s} className="bg-[#111]">{fmtRest(s)}</option>)}
+                        </select>
+                      </Field>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="rounded-2xl border border-dashed border-[#2a2a2a] p-3">
+            <ExercisePicker accent="#c8f53a" showGroups onPick={pick => {
+              setDraft(d => d && { ...d, exercises: [...d.exercises, { exerciseId: pick.id, name: pick.name, targetSets: 3, targetReps: 8, targetRepsMax: 10, targetWeight: null, restSeconds: 120 }] })
+              setOpenIdx(draft.exercises.length)
+            }} />
+          </div>
+
+          {draft.id && (
+            <button onClick={remove} className="w-full py-3 text-[12px] text-[#555] hover:text-red-400 cursor-pointer">Usuń szablon</button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── List ──
   return (
     <div className="min-h-full bg-[#080808] text-[#f0ece4]">
-      <div className="px-4 md:px-7 pt-5 md:pt-6 pb-2 flex flex-wrap gap-3 justify-between items-end">
-        <div>
-          <button onClick={() => router.push('/gym')} className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1 hover:text-[#f5a03a]">← Siłownia</button>
-          <h1 className="font-display text-[24px] font-black">Szablony <em className="not-italic text-[#f5a03a]">treningów</em></h1>
+      <div className="max-w-2xl mx-auto px-4 md:px-7 pt-4 md:pt-6 pb-8 space-y-4">
+        <GymTabs />
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[11px] font-mono text-[#666] uppercase tracking-[1.5px]">Siłownia</p>
+            <h1 className="font-display text-[24px] font-black leading-tight">Szablony</h1>
+          </div>
+          <button onClick={() => { setDraft({ id: null, name: '', exercises: [] }); setOpenIdx(null) }}
+            className="px-4 py-2 rounded-xl bg-[#c8f53a] text-[#0f1a00] text-[13px] font-medium cursor-pointer">+ Nowy</button>
         </div>
-        {!draft && (
-          <button onClick={() => { setDraft(emptyDraft()); setError('') }}
-            className="px-4 py-2 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] transition-all">
-            + Nowy szablon
-          </button>
-        )}
-      </div>
 
-      <div className="px-4 md:px-7 pb-7 pt-3 space-y-3 max-w-3xl">
         {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
 
-        {draft && (
-          <div className="bg-[#0f0f0f] border border-[#f5a03a]/20 rounded-2xl p-5 space-y-4">
-            <div>
-              <label className="block text-[9px] font-mono uppercase tracking-[1.5px] text-[#555] mb-1.5">Nazwa</label>
-              <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })}
-                placeholder="np. Upper body A"
-                className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl px-3 py-2.5 text-sm text-[#f0ece4] placeholder:text-[#444] focus:outline-none focus:border-[#f5a03a]/40" />
-            </div>
-
-            <div>
-              <label className="block text-[9px] font-mono uppercase tracking-[1.5px] text-[#555] mb-1.5">Ćwiczenia</label>
-              {draft.exercises.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  <div className="hidden sm:grid grid-cols-[1fr_56px_56px_64px_64px_60px] gap-2 px-1 text-[8px] font-mono uppercase tracking-wider text-[#444]">
-                    <span>Ćwiczenie</span><span>Serie</span><span>Powt.</span><span>Kg</span><span>Przerwa s</span><span />
-                  </div>
-                  {draft.exercises.map((ex, i) => (
-                    <div key={`${ex.exerciseId}-${i}`} className="grid grid-cols-[1fr_56px_56px_64px_64px_60px] gap-2 items-center bg-[#131313] border border-[#1c1c1c] rounded-xl p-2">
-                      <span className="text-[12px] text-[#ccc] truncate px-1">{ex.name}</span>
-                      <input type="number" min={1} value={ex.targetSets} onChange={e => updateExercise(i, { targetSets: Number(e.target.value) })} className={num} />
-                      <input type="number" min={1} value={ex.targetReps} onChange={e => updateExercise(i, { targetReps: Number(e.target.value) })} className={num} />
-                      <input type="number" min={0} step={0.5} placeholder="—" value={ex.targetWeight ?? ''} onChange={e => updateExercise(i, { targetWeight: e.target.value === '' ? null : Number(e.target.value) })} className={num} />
-                      <input type="number" min={0} step={15} value={ex.restSeconds} onChange={e => updateExercise(i, { restSeconds: Number(e.target.value) })} className={num} />
-                      <div className="flex gap-0.5 justify-end">
-                        <button onClick={() => moveExercise(i, -1)} className="w-5 h-6 text-[#555] hover:text-[#f0ece4]" aria-label="W górę">↑</button>
-                        <button onClick={() => moveExercise(i, 1)} className="w-5 h-6 text-[#555] hover:text-[#f0ece4]" aria-label="W dół">↓</button>
-                        <button onClick={() => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) })} className="w-5 h-6 text-[#555] hover:text-red-400" aria-label="Usuń">×</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <ExercisePicker onPick={ex => setDraft(d => d && {
-                ...d,
-                exercises: [...d.exercises, { exerciseId: ex.id, name: ex.name, targetSets: 3, targetReps: 8, targetWeight: null, restSeconds: 120 }],
-              })} />
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => { setDraft(null); setError('') }} className="px-4 py-2 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#333]">Anuluj</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] disabled:opacity-50">
-                {saving ? 'Zapisuję…' : 'Zapisz szablon'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {templates === null && [0, 1].map(i => <div key={i} className="h-[80px] rounded-2xl bg-[#0f0f0f] border border-[#1a1a1a] animate-pulse" />)}
-
-        {templates?.map(t => (
-          <div key={t.id} className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4">
-            <div className="flex justify-between items-start gap-3 mb-2">
-              <div className="font-display text-[15px] font-black">{t.name}</div>
-              <div className="flex gap-3 flex-shrink-0">
-                <button onClick={() => { setDraft({ id: t.id, name: t.name, exercises: t.exercises }); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-                  className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#666] hover:text-[#f5a03a]">Edytuj</button>
-                <button onClick={() => handleDelete(t)} className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#666] hover:text-red-400">Usuń</button>
+        <div className="space-y-2">
+          {templates === null && [0, 1, 2].map(i => <div key={i} className="h-[76px] rounded-2xl bg-[#0f0f0f] border border-[#1a1a1a] animate-pulse" />)}
+          {templates?.length === 0 && !error && <p className="text-center py-10 text-[13px] text-[#555]">Nie masz jeszcze szablonów.</p>}
+          {templates?.map(t => (
+            <button key={t.id} onClick={() => { setDraft({ id: t.id, name: t.name, exercises: t.exercises }); setOpenIdx(null) }}
+              className="w-full text-left rounded-2xl bg-[#111] border border-[#1e1e1e] hover:border-[#2a2a2a] px-4 py-3 cursor-pointer">
+              <div className="flex items-baseline gap-2">
+                <span className="flex-1 min-w-0 truncate text-[15px] font-medium">{t.name}</span>
+                <span className="text-[12px] text-[#777] flex-shrink-0">{t.last_used_at ? relativeDay(t.last_used_at) : 'nowy'}</span>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {t.exercises.map((ex, i) => (
-                <span key={i} className="text-[10px] font-mono px-2 py-1 rounded-md bg-[#131313] border border-[#1e1e1e] text-[#888]">
-                  {ex.name} · {ex.targetSets}×{ex.targetReps}{ex.targetWeight ? ` @ ${ex.targetWeight}kg` : ''}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
+              <div className="text-[12px] text-[#777] mt-1 line-clamp-2">
+                {t.exercises.map(e => `${e.name} ${e.targetSets}×${repsLabel(e)}`).join(' · ')}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

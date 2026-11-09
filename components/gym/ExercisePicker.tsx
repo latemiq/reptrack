@@ -21,10 +21,18 @@ const POPULAR_ITEMS: Item[] = POPULAR_EXERCISES.map(e => ({
  * Pick an exercise: popular Polish names first, then the (English) atlas;
  * matches names, aliases and muscle groups, or adds a free-text custom exercise.
  */
-export default function ExercisePicker({ onPick, accent = '#f5a03a' }: { onPick: (ex: ExerciseOption) => void; accent?: string }) {
+const GROUPS = ['Klatka', 'Plecy', 'Nogi', 'Barki', 'Ramiona', 'Brzuch']
+
+export default function ExercisePicker({ onPick, accent = '#f5a03a', showGroups = false }: {
+  onPick: (ex: ExerciseOption) => void
+  accent?: string
+  /** Muscle-group chips under the search field (Klatka, Plecy, …). */
+  showGroups?: boolean
+}) {
   const [atlas, setAtlas] = useState<Item[] | null>(null)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [group, setGroup] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/exercises')
@@ -42,11 +50,11 @@ export default function ExercisePicker({ onPick, accent = '#f5a03a' }: { onPick:
 
   const results = useMemo(() => {
     const q = norm(query.trim())
-    if (!q) return POPULAR_ITEMS.slice(0, 12)
-    const words = q.split(/\s+/)
+    if (!q && !group) return POPULAR_ITEMS.slice(0, 12)
+    const words = [...(q ? q.split(/\s+/) : []), ...(group ? [norm(group)] : [])]
     const match = (i: Item) => words.every(w => i.haystack.includes(w))
-    return [...POPULAR_ITEMS.filter(match), ...(atlas ?? []).filter(match)].slice(0, 12)
-  }, [atlas, query])
+    return [...POPULAR_ITEMS.filter(match), ...(atlas ?? []).filter(match)].slice(0, group && !q ? 30 : 12)
+  }, [atlas, query, group])
 
   const pick = (ex: ExerciseOption) => {
     onPick({ id: ex.id, name: ex.name })
@@ -74,11 +82,24 @@ export default function ExercisePicker({ onPick, accent = '#f5a03a' }: { onPick:
         className="w-full bg-[#0a0a0a] border border-[#1e1e1e] rounded-xl px-3 py-2.5 text-sm text-[#f0ece4] placeholder:text-[#555] focus:outline-none focus:border-[var(--accent)]"
         style={{ ['--accent' as string]: accent }}
       />
-      {open && (
+      {showGroups && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {GROUPS.map(g => (
+            <button key={g} type="button" onMouseDown={e => e.preventDefault()} onClick={() => { setGroup(cur => (cur === g ? null : g)); setOpen(true) }}
+              className={`px-2.5 py-1 rounded-full text-[11px] border cursor-pointer transition-colors ${
+                group === g ? 'border-transparent text-[#0f1a00]' : 'border-[#262626] text-[#999] hover:text-[#f0ece4]'
+              }`}
+              style={group === g ? { background: accent } : undefined}>
+              {g}
+            </button>
+          ))}
+        </div>
+      )}
+      {(open || !!group) && (
         // onMouseDown + preventDefault keeps the input focused, so the click lands before onBlur closes the list.
         <div className="absolute z-10 left-0 right-0 mt-1 bg-[#111] border border-[#222] rounded-xl overflow-hidden shadow-xl max-h-[320px] overflow-y-auto"
           onMouseDown={e => e.preventDefault()}>
-          {!query.trim() && <div className="px-3 pt-2 pb-1 text-[9px] font-mono uppercase tracking-[1.5px] text-[#555]">Popularne</div>}
+          {!query.trim() && <div className="px-3 pt-2 pb-1 text-[11px] font-mono uppercase tracking-[1.5px] text-[#555]">{group ?? 'Popularne'}</div>}
           {results.map(r => (
             <button key={`${r.popular ? 'p' : 'a'}:${r.id}`} onClick={() => pick(r)}
               className="w-full flex items-center gap-3 text-left px-3 py-2 text-[12px] text-[#ccc] hover:bg-white/[0.04]"

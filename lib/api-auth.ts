@@ -6,7 +6,8 @@ import { AUTH_BYPASS } from '@/lib/auth-bypass'
 import { isMfaSatisfied } from '@/lib/mfa'
 
 export { AUTH_BYPASS }
-const DEV_USER_ID = 'dev_user'
+// Dev bypass identity; DEV_BYPASS_USER_ID lets a local preview act as e.g. a seeded demo client.
+const DEV_USER_ID = process.env.DEV_BYPASS_USER_ID || 'dev_user'
 
 /**
  * Clerk user + session, ignoring the RepTrack second step. Only for the 2FA

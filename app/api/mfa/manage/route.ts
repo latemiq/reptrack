@@ -20,8 +20,9 @@ const bad = (error: string, status = 400) => NextResponse.json({ error }, { stat
 export async function POST(req: NextRequest) {
   const userId = await getUserId()
   const session = await getSessionIgnoringMfa()
-  if (!userId || !session || userId === 'dev_user') return unauthorized()
-  const sessionId = session.sessionId ?? ''
+  // Needs a real Clerk session (not the dev login bypass) to bind 2FA to.
+  if (!userId || !session?.sessionId) return unauthorized()
+  const sessionId = session.sessionId
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const supabase = supabaseAdmin()

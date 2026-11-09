@@ -3,6 +3,8 @@ export interface TemplateExercise {
   name: string
   targetSets: number
   targetReps: number
+  /** Upper end of a rep range ("6–8"); null = a single target. */
+  targetRepsMax?: number | null
   targetWeight: number | null
   restSeconds: number
 }
@@ -70,6 +72,7 @@ export function sanitizeTemplateExercises(input: unknown): TemplateExercise[] | 
       name:         r.name.trim(),
       targetSets:   clampInt(r.targetSets, 1, 20, 3),
       targetReps:   clampInt(r.targetReps, 1, 100, 8),
+      targetRepsMax: r.targetRepsMax != null && r.targetRepsMax !== '' ? Math.max(clampInt(r.targetRepsMax, 1, 100, 8), clampInt(r.targetReps, 1, 100, 8)) : null,
       targetWeight: r.targetWeight != null && r.targetWeight !== '' && Number.isFinite(weight) && weight > 0 ? weight : null,
       restSeconds:  clampInt(r.restSeconds, 0, 900, 120),
     })

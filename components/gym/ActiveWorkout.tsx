@@ -1,283 +1,207 @@
 'use client'
 
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  useWorkoutStore,
-  selectProgress,
-  selectTotalTonnage,
-  type ExerciseEntry,
-  type SetEntry,
-} from '@/lib/stores/useWorkoutStore'
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
+import { useShallow } from 'zustand/react/shallow'
+import { useWorkoutStore, selectProgress, selectTotalTonnage, type ExerciseEntry, type SetEntry } from '@/lib/stores/useWorkoutStore'
+import { fetchPrevious } from '@/lib/start-workout'
+import { fmtKg, fmtTonnes } from '@/lib/gym-stats'
+import ExercisePicker from '@/components/gym/ExercisePicker'
 
 const fmtTime = (totalSec: number) => {
-  const m = Math.floor(totalSec / 60)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
   const s = totalSec % 60
-  return `${m}:${String(s).padStart(2, '0')}`
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`
 }
 
-// ─── SUB-KOMPONENTY ───────────────────────────────────────────────────────────
+const num = (v: string) => (v === '' ? null : Number(v.replace(',', '.')))
+const isDone = (ex: ExerciseEntry) => ex.sets.length > 0 && ex.sets.every(s => s.done)
+const repsText = (ex: ExerciseEntry) =>
+  ex.targetRepsMax && ex.targetRepsMax !== ex.targetReps ? `${ex.targetReps}–${ex.targetRepsMax}` : String(ex.targetReps)
 
-function LiveBar({ workout, elapsed, tonnage, completedSets }: {
-  workout: { name: string; startedAt: number }
-  elapsed: number
-  tonnage: number
-  completedSets: number
-}) {
-  const startedTime = new Date(workout.startedAt).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
+/**
+ * Number input that keeps what the user is typing ("42," on the way to "42,5")
+ * and accepts both comma and dot; shows Polish formatting when not focused.
+ */
+function NumField({ value, onChange, ...rest }: {
+  value: number | null
+  onChange: (v: number | null) => void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  const [text, setText] = useState<string | null>(null)
   return (
-    <div className="relative overflow-hidden border-b border-[#f5a03a]/15 bg-gradient-to-r from-[#f5a03a]/[0.05] to-[#f5a03a]/[0.01] px-7 py-2.5 flex justify-between items-center">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#f5a03a] to-transparent animate-[liveSlide_3s_ease-in-out_infinite]" />
-      <div className="flex items-center gap-3.5">
-        <div className="w-1.5 h-1.5 rounded-full bg-[#f5a03a] animate-[livePulse_1.5s_ease-in-out_infinite]" />
-        <div>
-          <div className="text-[10px] font-mono text-[#f5a03a] uppercase tracking-[2px] font-medium">Trening trwa</div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="font-display text-[14px] font-black text-[#f0ece4]">{workout.name}</span>
-            <span className="text-[11px] font-mono text-[#888]">· rozpoczęty {startedTime}</span>
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-3 md:gap-5 items-center">
-        <Stat value={fmtTime(elapsed)} label="Czas" />
-        <Stat value={String(completedSets)} label="Serie" />
-        <Stat value={`${(tonnage / 1000).toFixed(1)}t`} label="Tonaż" />
-      </div>
-    </div>
+    <input {...rest} type="text"
+      value={text ?? (value != null ? fmtKg(value) : '')}
+      onFocus={e => { setText(value != null ? fmtKg(value) : ''); e.currentTarget.select() }}
+      onChange={e => {
+        const t = e.target.value.replace(/[^\d.,]/g, '')
+        setText(t)
+        const n = num(t)
+        onChange(n == null || Number.isNaN(n) ? null : n)
+      }}
+      onBlur={() => setText(null)} />
   )
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <span className="font-display text-[14px] font-black text-[#f0ece4] mr-1">{value}</span>
-      <span className="text-[9px] font-mono text-[#444] uppercase tracking-wider">{label}</span>
-    </div>
-  )
-}
+// ─── Set row ────────────────────────────────────────────────────────────────
 
-function ExerciseBlock({
-  exercise, index, isActive, isDone, onCompleteSet, onUpdateSet, onAddSet, onRemoveSet,
-}: {
-  exercise: ExerciseEntry
-  index: number
-  isActive: boolean
-  isDone: boolean
-  onCompleteSet: (setId: string) => void
-  onUpdateSet: (setId: string, patch: Partial<SetEntry>) => void
-  onAddSet: () => void
-  onRemoveSet: (setId: string) => void
-}) {
-  const completedCount = exercise.sets.filter(s => s.done).length
-  const targetCount = exercise.targetSets || exercise.sets.length
-
-  return (
-    <div className={`workout-exercise mb-2.5 rounded-xl overflow-hidden border transition-all duration-200 ${
-      isActive  ? 'border-[#f5a03a]/30 bg-[#f5a03a]/[0.03]'
-      : isDone  ? 'border-[#1c1c1c] bg-[#131313] opacity-50'
-      :           'border-[#1c1c1c] bg-[#131313]'
-    }`}>
-      <div className="flex justify-between items-center px-3.5 py-3">
-        <div className="flex items-center gap-2.5 flex-1">
-          <div className={`w-6 h-6 rounded-md flex items-center justify-center font-mono text-[10px] font-medium flex-shrink-0 ${
-            isActive ? 'bg-[#f5a03a]/15 text-[#f5a03a]'
-            : isDone ? 'bg-[#c8f53a]/15 text-[#c8f53a]'
-            :          'bg-[#1a1a1a] text-[#666]'
-          }`}>
-            {index + 1}
-          </div>
-          <div>
-            <div className={`text-[13px] font-medium mb-0.5 ${isActive ? 'text-[#f0ece4]' : 'text-[#ccc]'}`}>
-              {exercise.name}
-            </div>
-            <div className="text-[9px] font-mono text-[#444] uppercase tracking-wider">
-              {targetCount} serii · cel: {targetCount}×{exercise.targetReps}{exercise.targetWeight ? ` @ ${exercise.targetWeight}kg` : ''}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <span className="text-[11px] font-mono text-[#666]">
-            <strong className={isActive ? 'text-[#f5a03a]' : isDone ? 'text-[#c8f53a]' : 'text-[#888]'}>
-              {completedCount}/{targetCount}
-            </strong> serie
-          </span>
-          {isDone && <span className="text-[#c8f53a] text-sm">✓</span>}
-        </div>
-      </div>
-
-      {isActive && (
-        <div className="px-3.5 pb-3.5">
-          <div className="grid grid-cols-[28px_1fr_1fr_32px] sm:grid-cols-[32px_1fr_1fr_70px_32px] gap-1.5 sm:gap-2 px-1 py-1.5 text-[8px] font-mono text-[#444] uppercase tracking-wider border-b border-[#1a1a1a] mb-1">
-            <span>SER</span><span>KG</span><span>POWT</span><span className="hidden sm:block">RPE</span><span />
-          </div>
-          {exercise.sets.map((set, i) => (
-            <SetRow
-              key={set.id} set={set} setNumber={i + 1}
-              onComplete={() => onCompleteSet(set.id)}
-              onUpdate={patch => onUpdateSet(set.id, patch)}
-              onRemove={() => onRemoveSet(set.id)}
-            />
-          ))}
-          <button
-            onClick={onAddSet}
-            className="w-full mt-1.5 py-2 px-2.5 rounded-lg bg-transparent border border-dashed border-[#2a2a2a] text-[#555] text-[11px] font-mono uppercase tracking-[1.2px] hover:border-[#f5a03a]/30 hover:text-[#f5a03a] hover:border-solid transition-all flex items-center justify-center gap-1.5"
-          >
-            + Dodaj serię
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SetRow({ set, setNumber, onComplete, onUpdate, onRemove }: {
+function SetRow({ set, index, previous, onChange, onToggle }: {
   set: SetEntry
-  setNumber: number
-  onComplete: () => void
-  onUpdate: (patch: Partial<SetEntry>) => void
-  onRemove: () => void
+  index: number
+  previous?: { weightKg: number | null; reps: number | null }
+  onChange: (patch: Partial<SetEntry>) => void
+  onToggle: () => void
 }) {
-  const checkRef = useRef<HTMLButtonElement>(null)
+  const field = `w-full rounded-lg py-1.5 text-center text-[15px] font-mono outline-none transition-colors ${
+    set.done ? 'bg-transparent border border-transparent text-[#f0ece4]' : 'bg-[#0a0a0a] border border-[#262626] focus:border-[#c8f53a]/50 text-[#f0ece4]'
+  }`
+  return (
+    <div className={`grid grid-cols-[26px_1fr_68px_56px_36px] gap-1.5 items-center px-1.5 py-1 rounded-lg transition-colors ${set.done ? 'bg-[#162000]' : ''}`}>
+      <span className={`text-[13px] font-mono ${set.done ? 'text-[#c8f53a]' : 'text-[#888]'}`}>{index + 1}</span>
+      <span className="text-[12px] text-[#666] font-mono truncate">
+        {previous ? `${previous.weightKg != null ? fmtKg(previous.weightKg) : '–'}×${previous.reps ?? '–'}` : '—'}
+      </span>
+      <NumField inputMode="decimal" aria-label={`Ciężar, seria ${index + 1}`}
+        value={set.weightKg} placeholder={previous?.weightKg != null ? fmtKg(previous.weightKg) : 'kg'}
+        onChange={v => onChange({ weightKg: v })} readOnly={set.done} className={field} />
+      <NumField inputMode="numeric" aria-label={`Powtórzenia, seria ${index + 1}`}
+        value={set.reps} placeholder={previous?.reps != null ? String(previous.reps) : 'powt.'}
+        onChange={v => onChange({ reps: v == null ? null : Math.round(v) })} readOnly={set.done} className={field} />
+      <button onClick={onToggle} aria-label={set.done ? 'Cofnij zaliczenie serii' : 'Zalicz serię'}
+        className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-90 ${
+          set.done ? 'bg-[#c8f53a] text-[#0f1a00]' : 'border border-[#333] text-[#444] hover:border-[#c8f53a]/50'
+        }`}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+    </div>
+  )
+}
 
-  const handleComplete = () => {
-    if (set.done) return
-    onComplete()
-    if (checkRef.current) {
-      gsap.fromTo(checkRef.current, { scale: 0.8 }, { scale: 1, duration: 0.35, ease: 'back.out(2)' })
-    }
+// ─── Exercise card ──────────────────────────────────────────────────────────
+
+function ExerciseCard({ ex, index, total, expanded, onExpand }: {
+  ex: ExerciseEntry
+  index: number
+  total: number
+  expanded: boolean
+  onExpand: () => void
+}) {
+  const { updateSet, completeSet, addSet, removeSet, removeExercise, reorderExercise } = useWorkoutStore()
+  const [menu, setMenu] = useState(false)
+  const doneCount = ex.sets.filter(s => s.done).length
+  const done = isDone(ex)
+
+  if (!expanded) {
+    return (
+      <button onClick={onExpand}
+        className="w-full flex items-center gap-3 rounded-2xl bg-[#111] border border-[#1e1e1e] px-4 py-3 text-left cursor-pointer hover:border-[#2a2a2a]">
+        <span className={`flex-1 min-w-0 truncate text-[14px] ${done ? 'text-[#777]' : ''}`}>{ex.name}</span>
+        <span className={`text-[12px] font-mono ${done ? 'text-[#c8f53a]' : 'text-[#777]'}`}>{doneCount}/{ex.sets.length}</span>
+        {done && <span className="text-[#c8f53a]" aria-label="ukończone">✓</span>}
+      </button>
+    )
+  }
+
+  const toggle = (set: SetEntry) => {
+    if (set.done) updateSet(ex.id, set.id, { done: false, completedAt: undefined })
+    else completeSet(ex.id, set.id)
   }
 
   return (
-    <div className={`grid grid-cols-[28px_1fr_1fr_32px] sm:grid-cols-[32px_1fr_1fr_70px_32px] gap-1.5 sm:gap-2 items-center px-1 py-1.5 transition-opacity ${set.done ? 'opacity-55' : ''}`}>
-      <span className={`font-mono text-[11px] font-medium ${set.done ? 'text-[#666]' : 'text-[#f5a03a]'}`}>{setNumber}</span>
-      <input
-        type="number" inputMode="decimal" placeholder={set.weightKg?.toString() ?? '—'}
-        value={set.weightKg ?? ''}
-        onChange={e => onUpdate({ weightKg: e.target.value === '' ? null : Number(e.target.value) })}
-        disabled={set.done}
-        className="bg-[#0a0a0a] border border-[#1e1e1e] focus:border-[#f5a03a]/40 rounded-md px-2.5 py-1.5 text-[12px] text-[#f0ece4] font-mono outline-none transition-colors placeholder:text-[#333] disabled:text-[#666]"
-      />
-      <input
-        type="number" inputMode="numeric" placeholder={set.reps?.toString() ?? '—'}
-        value={set.reps ?? ''}
-        onChange={e => onUpdate({ reps: e.target.value === '' ? null : Number(e.target.value) })}
-        disabled={set.done}
-        className="bg-[#0a0a0a] border border-[#1e1e1e] focus:border-[#f5a03a]/40 rounded-md px-2.5 py-1.5 text-[12px] text-[#f0ece4] font-mono outline-none transition-colors placeholder:text-[#333] disabled:text-[#666]"
-      />
-      <input
-        type="number" step="0.5" min="1" max="10" placeholder="—"
-        value={set.rpe ?? ''}
-        onChange={e => onUpdate({ rpe: e.target.value === '' ? null : Number(e.target.value) })}
-        disabled={set.done}
-        className="hidden sm:block bg-[#0a0a0a] border border-[#1e1e1e] focus:border-[#f5a03a]/40 rounded-md px-2 py-1.5 text-[11px] text-[#888] font-mono outline-none transition-colors placeholder:text-[#333]"
-      />
-      <button
-        ref={checkRef}
-        onClick={handleComplete}
-        className={`w-11 h-11 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-all ${
-          set.done
-            ? 'bg-[#c8f53a] border-[#c8f53a]'
-            : 'bg-[#1a1a1a] border-[#2a2a2a] hover:border-[#444]'
-        }`}
-        aria-label={set.done ? 'Seria ukończona' : 'Oznacz serię jako ukończoną'}
-      >
-        {set.done && (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6l3 3 5-5" stroke="#080808" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+    <div className="rounded-2xl bg-[#111] border border-[#c8f53a]/25 p-3">
+      <div className="flex items-start gap-2 px-1">
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-medium text-[#c8f53a] truncate">{ex.name}</div>
+          <div className="text-[12px] text-[#777] mt-0.5">
+            {ex.plan ? `Plan: ${ex.plan}` : `Cel: ${ex.targetSets}×${repsText(ex)}${ex.targetWeight ? ` @ ${fmtKg(ex.targetWeight)} kg` : ''}`}
+            {ex.restSeconds ? ` · przerwa ${fmtTime(ex.restSeconds)}` : ''}
+          </div>
+        </div>
+        <div className="relative">
+          <button onClick={() => setMenu(m => !m)} aria-label="Opcje ćwiczenia" className="w-8 h-8 rounded-lg text-[#777] hover:text-[#f0ece4] cursor-pointer">⋯</button>
+          {menu && (
+            <div className="absolute right-0 top-9 z-20 w-44 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] py-1 shadow-xl" onMouseLeave={() => setMenu(false)}>
+              {index > 0 && <button onClick={() => { reorderExercise(ex.id, 'up'); setMenu(false) }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/[0.05] cursor-pointer">Przesuń wyżej</button>}
+              {index < total - 1 && <button onClick={() => { reorderExercise(ex.id, 'down'); setMenu(false) }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/[0.05] cursor-pointer">Przesuń niżej</button>}
+              <button onClick={() => { if (confirm(`Usunąć „${ex.name}” z treningu?`)) removeExercise(ex.id) }} className="w-full text-left px-3 py-2 text-[13px] text-red-400 hover:bg-white/[0.05] cursor-pointer">Usuń ćwiczenie</button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[26px_1fr_68px_56px_36px] gap-1.5 px-1.5 mt-3 mb-1 text-[11px] font-mono text-[#555] uppercase">
+        <span>Ser</span><span>Poprz.</span><span className="text-center">kg</span><span className="text-center">Powt</span><span />
+      </div>
+      <div className="space-y-1">
+        {ex.sets.map((set, i) => (
+          <SetRow key={set.id} set={set} index={i} previous={ex.previous?.[i]}
+            onChange={patch => updateSet(ex.id, set.id, patch)} onToggle={() => toggle(set)} />
+        ))}
+      </div>
+      <div className="flex gap-2 mt-2">
+        <button onClick={() => addSet(ex.id)} className="flex-1 py-2 rounded-lg text-[12px] text-[#999] hover:text-[#c8f53a] hover:bg-white/[0.02] cursor-pointer">+ Dodaj serię</button>
+        {ex.sets.length > 1 && !ex.sets[ex.sets.length - 1].done && (
+          <button onClick={() => removeSet(ex.id, ex.sets[ex.sets.length - 1].id)} className="px-3 py-2 rounded-lg text-[12px] text-[#666] hover:text-red-400 cursor-pointer">− Usuń</button>
         )}
-      </button>
-      {!set.done && (
-        <button
-          onClick={onRemove}
-          className="col-start-5 row-start-1 hidden group-hover:flex w-8 h-8 rounded-lg border border-[#1e1e1e] items-center justify-center text-[#444] hover:text-[#f5a03a] hover:border-[#f5a03a]/30 transition-all text-xs"
-        >×</button>
-      )}
+      </div>
     </div>
   )
 }
 
-function RestTimer() {
+// ─── Rest timer bar ─────────────────────────────────────────────────────────
+
+function RestBar() {
   const { restTimer, tickRestTimer, skipRestTimer, addRestTime } = useWorkoutStore()
 
   useEffect(() => {
     if (!restTimer.isActive) return
-    const interval = setInterval(() => tickRestTimer(), 1000)
-    return () => clearInterval(interval)
+    const i = setInterval(() => tickRestTimer(), 1000)
+    return () => clearInterval(i)
   }, [restTimer.isActive, tickRestTimer])
 
   useEffect(() => {
     if (restTimer.isActive && restTimer.remainingSeconds <= 0) {
+      try { navigator.vibrate?.([200, 100, 200]) } catch { /* not supported */ }
       skipRestTimer()
     }
   }, [restTimer.remainingSeconds, restTimer.isActive, skipRestTimer])
 
-  if (!restTimer.isActive) {
-    return (
-      <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5 text-center">
-        <div className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-2">Timer</div>
-        <p className="text-[12px] text-[#555]">Ukończ serię żeby uruchomić odliczanie</p>
-      </div>
-    )
-  }
-
-  const radius = 60
-  const circumference = 2 * Math.PI * radius
-  const pct = restTimer.remainingSeconds / restTimer.totalSeconds
-  const dashOffset = circumference * (1 - pct)
+  if (!restTimer.isActive) return null
+  const pct = restTimer.totalSeconds ? (restTimer.remainingSeconds / restTimer.totalSeconds) * 100 : 0
 
   return (
-    <div className="bg-[#0f0f0f] border border-[#f5a03a]/18 rounded-2xl p-5 text-center relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#f5a03a]/40 to-transparent" />
-      <div className="text-[9px] font-mono text-[#f5a03a] uppercase tracking-[2px] mb-2.5 flex items-center justify-center gap-1.5">
-        <span className="w-1 h-1 rounded-full bg-[#f5a03a] animate-pulse" />
-        Odpoczynek
-      </div>
-      <div className="relative w-[140px] h-[140px] mx-auto mb-3">
-        <svg className="w-full h-full -rotate-90">
-          <circle cx="70" cy="70" r={radius} fill="none" stroke="#1a1a1a" strokeWidth="6" />
-          <circle cx="70" cy="70" r={radius} fill="none" stroke="#f5a03a" strokeWidth="6"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-            style={{ transition: 'stroke-dashoffset 1s linear' }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="font-display text-[32px] font-black text-[#f0ece4] leading-none">
-            {fmtTime(restTimer.remainingSeconds)}
-          </div>
-          <div className="text-[9px] font-mono text-[#444] mt-1">z {fmtTime(restTimer.totalSeconds)}</div>
+    <div className="sticky bottom-0 z-30 -mx-4 md:mx-0 md:rounded-2xl bg-[#151515] border-t md:border border-[#262626] px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-mono uppercase tracking-[1.5px] text-[#f5a03a]">Przerwa</div>
+          <div className="text-[26px] font-mono leading-none">{fmtTime(Math.max(0, restTimer.remainingSeconds))}</div>
+        </div>
+        <div className="flex gap-1.5">
+          <button onClick={() => addRestTime(-15)} className="px-3 py-2 rounded-full bg-[#222] text-[12px] text-[#ccc] cursor-pointer">−15 s</button>
+          <button onClick={() => addRestTime(15)} className="px-3 py-2 rounded-full bg-[#222] text-[12px] text-[#ccc] cursor-pointer">+15 s</button>
+          <button onClick={skipRestTimer} className="px-3 py-2 rounded-full bg-[#f5a03a] text-[12px] text-[#2a1600] font-medium cursor-pointer">Pomiń</button>
         </div>
       </div>
-      <div className="flex gap-1.5 justify-center">
-        <button onClick={skipRestTimer} className="px-3.5 py-1.5 rounded-lg bg-transparent border border-[#2a2a2a] text-[#888] text-[10px] font-mono uppercase tracking-[1.2px] hover:border-[#444] hover:text-[#ccc] transition-all">
-          Pomiń
-        </button>
-        <button onClick={() => addRestTime(30)} className="px-3.5 py-1.5 rounded-lg bg-[#1a1a1a] text-[#ccc] text-[10px] font-mono uppercase tracking-[1.2px] hover:bg-[#222] transition-all">
-          +30s
-        </button>
+      <div className="h-[3px] rounded-full bg-[#262626] mt-2.5 overflow-hidden">
+        <div className="h-full bg-[#f5a03a] transition-[width] duration-1000 ease-linear" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
 }
 
-// ─── GŁÓWNY KOMPONENT ─────────────────────────────────────────────────────────
+// ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function ActiveWorkout() {
   const router = useRouter()
-  const containerRef = useRef<HTMLDivElement>(null)
+  const { activeWorkout, finishWorkout, cancelWorkout, addExercise } = useWorkoutStore()
+  // selectProgress builds a new object each call — compare shallowly or zustand re-renders forever.
+  const progress = useWorkoutStore(useShallow(selectProgress))
+  const tonnage = useWorkoutStore(selectTotalTonnage)
   const [elapsed, setElapsed] = useState(0)
-  const [isFinishing, setIsFinishing] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-
-  const { activeWorkout, completeSet, updateSet, addSet, removeSet, finishWorkout, cancelWorkout, addExercise } = useWorkoutStore()
-  const progress = useWorkoutStore(selectProgress)
-  const tonnage  = useWorkoutStore(selectTotalTonnage)
 
   useEffect(() => {
     if (!activeWorkout) return
@@ -287,187 +211,107 @@ export default function ActiveWorkout() {
     return () => clearInterval(i)
   }, [activeWorkout])
 
-  // Odbiera ćwiczenie wybrane z atlasu (sessionStorage → dodaj do aktywnego treningu)
-  useEffect(() => {
-    const stored = sessionStorage.getItem('reptrack-selected-exercise')
-    if (!stored || !activeWorkout) return
-    try {
-      const exercise = JSON.parse(stored)
-      sessionStorage.removeItem('reptrack-selected-exercise')
-      addExercise({
-        id: crypto.randomUUID(),
-        exerciseId: exercise.id,
-        name: exercise.name,
-        targetSets: 3,
-        targetReps: 8,
-        targetWeight: null,
-        restSeconds: 120,
-      })
-    } catch { /* ignore */ }
-  }, [activeWorkout, addExercise])
-
-  useGSAP(() => {
-    if (!activeWorkout) return
-    const tl = gsap.timeline({ delay: 0.05 })
-    tl.from('.live-bar-anim', { opacity: 0, y: -12, duration: 0.45, ease: 'expo.out' })
-    tl.from('.workout-topbar', { opacity: 0, y: -8, duration: 0.4, ease: 'expo.out' }, '-=0.25')
-    tl.from(['.workout-area', '.workout-side > *'], { opacity: 0, y: 14, duration: 0.5, stagger: 0.08, ease: 'expo.out' }, '-=0.25')
-    tl.from('.workout-exercise', { opacity: 0, x: -10, duration: 0.4, stagger: 0.06, ease: 'expo.out' }, '-=0.3')
-  }, { scope: containerRef, dependencies: [activeWorkout?.id] })
-
   if (!activeWorkout) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#080808] text-[#f0ece4]">
-        <div className="text-center max-w-md px-6">
-          <div className="font-display text-[28px] font-black mb-3">Brak aktywnego treningu</div>
-          <p className="text-[14px] text-[#666] mb-6">Wróć do siłowni i wybierz szablon żeby zacząć sesję.</p>
-          <button onClick={() => router.push('/gym')} className="px-6 py-3 rounded-xl bg-[#f5a03a] text-[#080808] font-mono text-[12px] uppercase tracking-[1.5px] font-medium hover:bg-[#ffb04a] transition-all">
-            Przejdź do siłowni →
-          </button>
+      <div className="min-h-full flex items-center justify-center bg-[#080808] text-[#f0ece4] p-6">
+        <div className="text-center max-w-sm">
+          <div className="font-display text-[24px] font-black mb-2">Brak aktywnego treningu</div>
+          <p className="text-[14px] text-[#777] mb-6">Wybierz szablon albo trening od trenera, żeby zacząć.</p>
+          <button onClick={() => router.push('/gym')} className="px-6 py-3 rounded-xl bg-[#c8f53a] text-[#0f1a00] text-[12px] font-mono uppercase tracking-[1.5px] cursor-pointer">Przejdź do siłowni</button>
         </div>
       </div>
     )
   }
 
-  const activeExerciseId = activeWorkout.exercises.find(ex => {
-    const target = ex.targetSets || ex.sets.length
-    return ex.sets.filter(s => s.done).length < target
-  })?.id
+  // The first unfinished exercise is open unless the user opened another one.
+  const firstOpen = activeWorkout.exercises.find(ex => !isDone(ex))?.id ?? null
+  const openId = expandedId && activeWorkout.exercises.some(e => e.id === expandedId) ? expandedId : firstOpen
 
-  const completedSets = activeWorkout.exercises.reduce((sum, ex) => sum + ex.sets.filter(s => s.done).length, 0)
+  const addFromPicker = async (pick: { id: string; name: string }) => {
+    setPicking(false)
+    const previous = (await fetchPrevious([pick.id]))[pick.id]
+    const id = crypto.randomUUID()
+    addExercise({ id, exerciseId: pick.id, name: pick.name, targetSets: previous?.length || 3, targetReps: previous?.[0]?.reps ?? 8, targetWeight: null, restSeconds: 120, previous })
+    setExpandedId(id)
+  }
 
-  const handleFinish = async () => {
-    if (!activeWorkout || isFinishing) return
-
-    setIsFinishing(true)
+  const finish = async () => {
+    const left = progress.total - progress.done
+    if (left > 0 && !confirm(`Zostało ${left} niezaliczonych serii. Zakończyć trening? Zapiszą się tylko zaliczone serie.`)) return
+    setSaving(true)
     setSaveError('')
     try {
-      const res = await fetch('/api/gym/workouts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(activeWorkout),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? `Zapis nie powiódł się (${res.status})`)
-      }
+      const res = await fetch('/api/gym/workouts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(activeWorkout) })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Zapis nie powiódł się (${res.status})`)
       finishWorkout()
       router.push('/gym/history')
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Nie udało się zapisać treningu')
-    } finally {
-      setIsFinishing(false)
+      setSaving(false)
     }
   }
 
-  const handleCancel = () => {
-    if (!confirm('Czy na pewno chcesz anulować trening? Wszystkie zalogowane serie zostaną stracone.')) return
+  const cancel = () => {
+    if (!confirm('Anulować trening? Zalogowane serie zostaną utracone.')) return
     cancelWorkout()
     router.push('/gym')
   }
 
   return (
-    <div ref={containerRef} className="flex h-screen bg-[#080808] text-[#f0ece4] font-sans overflow-hidden">
-      <main className="flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-
-        <div className="live-bar-anim">
-          <LiveBar workout={activeWorkout} elapsed={elapsed} tonnage={tonnage} completedSets={completedSets} />
-        </div>
-
-        <div className="workout-topbar px-4 md:px-7 pt-4 md:pt-5 pb-2 flex justify-between items-end">
-          <div>
-            <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">Siłownia · aktywna sesja</p>
-            <h1 className="font-display text-[22px] font-black">
-              {activeWorkout.name.split('·').map((part, i) => (
-                <span key={i}>
-                  {i === 0 ? part : <em className="not-italic text-[#f5a03a]">·{part}</em>}
-                </span>
-              ))}
-            </h1>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={handleCancel} className="px-4 py-2 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#333] hover:text-[#ccc] transition-all">
-              Anuluj
+    <div className="min-h-full bg-[#080808] text-[#f0ece4]">
+      <div className="max-w-2xl mx-auto px-4 md:px-7 min-h-full flex flex-col">
+        {/* Header */}
+        <header className="sticky top-0 z-20 bg-[#080808] pt-3 pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex items-center gap-2">
+            <button onClick={() => router.push('/gym')} aria-label="Wróć do siłowni (trening trwa dalej)"
+              className="w-9 h-9 rounded-xl text-[#888] hover:text-[#f0ece4] flex items-center justify-center cursor-pointer">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M5 8l5 5 5-5" /></svg>
             </button>
-            <button onClick={handleFinish} disabled={isFinishing} className="px-4 py-2 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px transition-all disabled:opacity-50 disabled:hover:translate-y-0">
-              {isFinishing ? 'Zapisuję...' : 'Zakończ trening'}
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 md:px-7 pt-3 pb-6 md:pb-7">
-          {saveError && (
-            <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">
-              {saveError}. Trening nadal jest zapisany lokalnie.
+            <div className="flex-1 min-w-0 text-center">
+              <div className="text-[15px] font-medium truncate">{activeWorkout.name}</div>
+              <div className="text-[12px] font-mono text-[#777]">{fmtTime(elapsed)} · {fmtTonnes(tonnage)}</div>
             </div>
+            <button onClick={finish} disabled={saving}
+              className="px-3.5 py-2 rounded-xl bg-[#c8f53a] text-[#0f1a00] text-[13px] font-medium disabled:opacity-60 cursor-pointer">
+              {saving ? 'Zapisuję…' : 'Zakończ'}
+            </button>
+          </div>
+          <div className="h-1 rounded-full bg-[#1a1a1a] mt-2.5 overflow-hidden">
+            <div className="h-full bg-[#c8f53a] transition-[width] duration-300" style={{ width: `${progress.pct}%` }} />
+          </div>
+        </header>
+
+        {saveError && (
+          <div className="mt-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">
+            {saveError}. Trening jest nadal zapisany na tym urządzeniu — spróbuj ponownie.
+          </div>
+        )}
+
+        <div className="flex-1 space-y-2 pt-2 pb-4">
+          {activeWorkout.exercises.length === 0 && !picking && (
+            <p className="text-center text-[13px] text-[#666] py-8">Pusty trening — dodaj pierwsze ćwiczenie.</p>
+          )}
+          {activeWorkout.exercises.map((ex, i) => (
+            <ExerciseCard key={ex.id} ex={ex} index={i} total={activeWorkout.exercises.length}
+              expanded={ex.id === openId} onExpand={() => setExpandedId(ex.id)} />
+          ))}
+
+          {picking ? (
+            <div className="rounded-2xl bg-[#111] border border-[#1e1e1e] p-3 space-y-2">
+              <ExercisePicker accent="#c8f53a" onPick={addFromPicker} />
+              <button onClick={() => setPicking(false)} className="w-full py-1.5 text-[12px] text-[#666] cursor-pointer">Anuluj</button>
+            </div>
+          ) : (
+            <button onClick={() => setPicking(true)} className="w-full py-3 rounded-2xl border border-dashed border-[#2a2a2a] text-[13px] text-[#999] hover:text-[#c8f53a] hover:border-[#c8f53a]/40 cursor-pointer">
+              + Dodaj ćwiczenie
+            </button>
           )}
 
-          <div className="flex flex-col-reverse lg:grid lg:grid-cols-[1fr_320px] gap-3.5">
-
-            {/* WORKOUT AREA */}
-            <div className="workout-area bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4 md:p-5 min-h-[560px]">
-              <div className="flex justify-between items-start mb-4 pb-3.5 border-b border-[#161616]">
-                <div>
-                  <div className="font-display text-[18px] font-black text-[#f0ece4] mb-0.5">{activeWorkout.name}</div>
-                  <div className="text-[10px] font-mono text-[#666]">
-                    {activeWorkout.exercises.length} ćwiczeń · {progress.done}/{progress.total} serii ukończonych
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="font-display text-[24px] font-black text-[#f5a03a]">{progress.pct}%</div>
-                  <div className="text-[9px] font-mono text-[#444] uppercase tracking-[1.5px]">Postęp</div>
-                </div>
-              </div>
-
-              {activeWorkout.exercises.map((ex, idx) => {
-                const target = ex.targetSets || ex.sets.length
-                const doneCount = ex.sets.filter(s => s.done).length
-                const isDone = target > 0 && doneCount >= target
-                const isActive = ex.id === activeExerciseId
-
-                return (
-                  <ExerciseBlock
-                    key={ex.id} exercise={ex} index={idx}
-                    isActive={isActive} isDone={isDone}
-                    onCompleteSet={(setId) => completeSet(ex.id, setId)}
-                    onUpdateSet={(setId, patch) => updateSet(ex.id, setId, patch)}
-                    onAddSet={() => addSet(ex.id)}
-                    onRemoveSet={(setId) => removeSet(ex.id, setId)}
-                  />
-                )
-              })}
-
-              <button
-                onClick={() => router.push(`/gym/exercises?returnTo=/gym/log/${activeWorkout.id}`)}
-                className="w-full flex items-center justify-center gap-2 py-3.5 mt-2.5 rounded-xl bg-transparent border border-dashed border-[#1e1e1e] text-[#555] text-[11px] font-mono uppercase tracking-[1.5px] hover:border-[#f5a03a]/30 hover:text-[#f5a03a] hover:bg-[#f5a03a]/[0.02] hover:border-solid transition-all"
-              >
-                + Dodaj ćwiczenie
-              </button>
-            </div>
-
-            {/* SIDE PANEL */}
-            <div className="workout-side flex flex-col gap-3">
-              <RestTimer />
-
-              <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-[11px] font-mono text-[#888] uppercase tracking-[1.5px] font-medium">Historia</span>
-                </div>
-                <p className="text-[11px] text-[#555] leading-relaxed">
-                  Podłącz Supabase żeby zobaczyć poprzednie wyniki dla aktywnego ćwiczenia.
-                </p>
-              </div>
-
-              <div className="bg-[#0f0f0f] border border-[#c8f53a]/18 rounded-2xl p-4 text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#c8f53a]/40 to-transparent" />
-                <div className="text-[9px] font-mono text-[#c8f53a] uppercase tracking-[2px] mb-2.5">Możliwy PR…</div>
-                <p className="text-[11px] text-[#666]">Po 6 sesjach AI policzy szacowany 1RM</p>
-              </div>
-            </div>
-
-          </div>
+          <button onClick={cancel} className="w-full py-3 text-[12px] text-[#555] hover:text-red-400 cursor-pointer">Anuluj trening</button>
         </div>
-      </main>
+
+        <RestBar />
+      </div>
     </div>
   )
 }
