@@ -15,9 +15,21 @@
       "runtimeExecutable": "cmd",
       "runtimeArgs": [
         "/c",
-        "set NEXT_PUBLIC_BYPASS_AUTH=true&& npx next dev -p 3002"
+        "set NEXT_PUBLIC_BYPASS_AUTH=true&& set NEXT_DIST_DIR=.next-preview&& npx next dev -p 3002"
       ],
       "port": 3002
+    },
+    {
+      "name": "prosta-apka",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5500",
+        "-d",
+        "prosta-apka"
+      ],
+      "port": 5500
     }
   ]
 }
