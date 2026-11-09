@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.reptrack_five_tau.twa",
+        "sha256_cert_fingerprints": ["D4:06:4C:88:C8:1B:9E:15:D5:5F:92:39:13:93:50:95:55:E9:74:0B:62:79:D1:5C:76:8A:5E:E7:73:7F:ED:71"]
+      }
+    }]
