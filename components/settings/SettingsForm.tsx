@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import AddWeightModal from '@/components/weight/AddWeightModal'
 import TrainerSection from '@/components/settings/TrainerSection'
+import SecuritySection from '@/components/settings/SecuritySection'
 
 interface FormState {
   weightKg: number
@@ -276,6 +277,8 @@ export default function SettingsForm() {
         </div>
 
         <TrainerSection onRoleChange={role => setIsTrainer(role === 'trainer')} />
+
+        <SecuritySection />
       </div>
 
       {showWeightModal && (

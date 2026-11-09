@@ -12,6 +12,7 @@ const isProtectedRoute = createRouteMatcher([
   '/settings(.*)',
   '/goals(.*)',
   '/trainer(.*)',
+  '/verify-2fa(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {

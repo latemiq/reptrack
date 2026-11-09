@@ -438,5 +438,65 @@ $$;
 
 revoke execute on function save_macrocycle(jsonb) from public, anon, authenticated;
 
+-- ─── WERYFIKACJA DWUETAPOWA (własna, na darmowym planie Clerk) ───────────────
+-- Clerk obsługuje pierwszy etap (email + hasło). Drugi etap — odcisk palca
+-- (WebAuthn), aplikacja TOTP lub kod z maila — weryfikuje RepTrack, a wynik
+-- zapisuje w podpisanym ciasteczku powiązanym z sesją Clerk (lib/mfa.ts).
+-- Tabele dostępne wyłącznie przez API (service role): RLS bez polityk.
+
+create table if not exists mfa_settings (
+  user_id text primary key,
+  totp_secret text,             -- zaszyfrowany AES-256-GCM (MFA_SECRET)
+  totp_enabled boolean not null default false,
+  totp_pending_secret text,     -- w trakcie konfiguracji, przed potwierdzeniem kodem
+  email_enabled boolean not null default false,
+  failed_attempts int not null default 0,
+  locked_until timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists mfa_passkeys (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  credential_id text not null unique,   -- base64url
+  public_key text not null,             -- base64url (COSE)
+  counter bigint not null default 0,
+  transports text[] not null default '{}',
+  name text,
+  created_at timestamptz default now(),
+  last_used_at timestamptz
+);
+
+create index if not exists mfa_passkeys_user_idx on mfa_passkeys (user_id);
+
+create table if not exists mfa_backup_codes (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  code_hash text not null,
+  used_at timestamptz,
+  created_at timestamptz default now()
+);
+
+create index if not exists mfa_backup_codes_user_idx on mfa_backup_codes (user_id);
+
+-- Jednorazowe wyzwania: WebAuthn (challenge) i kody z maila (hash kodu).
+create table if not exists mfa_challenges (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  kind text not null check (kind in ('passkey_register', 'passkey_auth', 'email_enable', 'email_auth')),
+  value text not null,
+  attempts int not null default 0,
+  expires_at timestamptz not null,
+  created_at timestamptz default now()
+);
+
+create index if not exists mfa_challenges_user_kind_idx on mfa_challenges (user_id, kind, created_at desc);
+
+alter table mfa_settings enable row level security;
+alter table mfa_passkeys enable row level security;
+alter table mfa_backup_codes enable row level security;
+alter table mfa_challenges enable row level security;
+
 -- ─── STORAGE (opcjonalnie) ───────────────────────────────────────────────────
 -- insert into storage.buckets (id, name, public) values ('screenshots', 'screenshots', false);

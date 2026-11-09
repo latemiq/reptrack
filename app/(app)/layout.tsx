@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { useNotificationsStore, selectUnreadCount } from '@/lib/stores/useNotificationsStore'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
+import { pendingMfaRedirect } from '@/lib/mfa-client'
 
 const NAV_ITEMS = [
   {
@@ -178,6 +179,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isTrainer && !isTrainerAllowed(pathname)) router.replace('/trainer')
   }, [isTrainer, pathname, router])
+
+  // Users with 2FA must pass the second step before the app shows anything —
+  // the API refuses data until then, so send them to the verification screen.
+  useEffect(() => {
+    pendingMfaRedirect(pathname).then(to => { if (to) router.replace(to) })
+  }, [pathname, router])
 
   const sidebarItems: NavItem[] = role === null ? [] : isTrainer ? TRAINER_NAV : NAV_ITEMS
   const accountItems: NavItem[] = role === null ? [] : isTrainer ? TRAINER_ACCOUNT : ACCOUNT_ITEMS

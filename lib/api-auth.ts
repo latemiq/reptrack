@@ -3,15 +3,36 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
 import { AUTH_BYPASS } from '@/lib/auth-bypass'
+import { isMfaSatisfied } from '@/lib/mfa'
 
 export { AUTH_BYPASS }
 const DEV_USER_ID = 'dev_user'
 
-/** Clerk user ID, or a fixed dev ID when NEXT_PUBLIC_BYPASS_AUTH=true. */
+/**
+ * Clerk user + session, ignoring the RepTrack second step. Only for the 2FA
+ * endpoints themselves (status, verify, sign-out) — everything else uses getUserId().
+ */
+export async function getSessionIgnoringMfa(): Promise<{ userId: string; sessionId: string | null } | null> {
+  const { userId, sessionId } = await auth()
+  if (userId) return { userId, sessionId }
+  return AUTH_BYPASS ? { userId: DEV_USER_ID, sessionId: null } : null
+}
+
+/**
+ * Clerk user ID, or a fixed dev ID when NEXT_PUBLIC_BYPASS_AUTH=true.
+ * Returns null for users with 2FA enabled until this session passed the second step,
+ * so every API route behind it is protected by 2FA.
+ */
 export async function getUserId(): Promise<string | null> {
-  const { userId } = await auth()
-  if (userId) return userId
-  return AUTH_BYPASS ? DEV_USER_ID : null
+  const session = await getSessionIgnoringMfa()
+  if (!session) return null
+  if (session.userId === DEV_USER_ID) return session.userId
+  try {
+    return (await isMfaSatisfied(session.userId, session.sessionId)) ? session.userId : null
+  } catch (err) {
+    console.error('MFA check failed:', err)
+    return null
+  }
 }
 
 export const unauthorized = () => NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

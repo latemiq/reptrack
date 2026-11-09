@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { fetchInvitePreview, redeemInvite, type InvitePreview } from '@/lib/invites'
+import { pendingMfaRedirect } from '@/lib/mfa-client'
 
 /** Signed-in user opened a trainer's QR link: confirm and join. */
 export default function JoinInvite({ code }: { code: string }) {
@@ -18,7 +19,12 @@ export default function JoinInvite({ code }: { code: string }) {
     setBusy(true)
     setError('')
     const res = await redeemInvite(code)
-    if (!res.ok) { setBusy(false); setError(res.error); return }
+    if (!res.ok) {
+      // A 2FA user who hasn't passed the second step yet: verify, then come back here.
+      const to = await pendingMfaRedirect(`/join/${code}`)
+      if (to) { router.replace(to); return }
+      setBusy(false); setError(res.error); return
+    }
     setJoined(true)
     // Someone who never finished the sign-up survey fills in the same data in Settings.
     const profile = await fetch('/api/profile').then(r => (r.ok ? r.json() : null)).catch(() => null)

@@ -30,6 +30,15 @@
         "prosta-apka"
       ],
       "port": 5500
+    },
+    {
+      "name": "dev-preview",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set NEXT_PUBLIC_BYPASS_AUTH=false&& set NEXT_DIST_DIR=.next-preview&& npx next dev -p 3003"
+      ],
+      "port": 3003
     }
   ]
 }
