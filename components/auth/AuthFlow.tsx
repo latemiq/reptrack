@@ -78,12 +78,26 @@ const BG_MAP: Record<string, number> = {
   choose:0, email:1, password:2, verify:2, profile:3, goals:4, stats:4, success:5
 }
 
-/** invite: trainer invite code from a scanned QR (/join/[code] → /auth?invite=CODE). */
-export default function AuthFlow({ invite = null }: { invite?: string | null }) {
+/**
+ * invite: trainer invite code from a scanned QR (/join/[code] → /auth?invite=CODE).
+ * expired: the user was signed out after inactivity (IdleLogout).
+ */
+export default function AuthFlow({ invite = null, expired = false }: { invite?: string | null; expired?: boolean }) {
   const router = useRouter()
   const { signUp, isLoaded: upLoaded } = useSignUp()
   const { signIn, isLoaded: inLoaded } = useSignIn()
-  const { setActive } = useClerk()
+  const clerk = useClerk()
+  const { setActive } = clerk
+
+  /**
+   * Clerk refuses a new sign-in/sign-up while another session is still active
+   * ("You're already signed in") — e.g. when switching between accounts.
+   * End that session first and continue on the reset client's resources.
+   */
+  const withoutActiveSession = async () => {
+    if (clerk.session) await clerk.signOut(() => {}) // callback = no redirect
+    return { signIn: clerk.client?.signIn ?? signIn, signUp: clerk.client?.signUp ?? signUp }
+  }
 
   const [mode, setMode] = useState<Mode>('choose')
   const [step, setStep] = useState<Step>('email')
@@ -153,8 +167,9 @@ export default function AuthFlow({ invite = null }: { invite?: string | null }) 
     setLoading(true)
     try {
       const normalizedEmail = email.trim()
-      await signUp.create({ emailAddress: normalizedEmail, password })
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      const fresh = (await withoutActiveSession()).signUp ?? signUp
+      await fresh.create({ emailAddress: normalizedEmail, password })
+      await fresh.prepareEmailAddressVerification({ strategy: 'email_code' })
       setEmail(normalizedEmail)
       go('verify')
     } catch (e: unknown) {
@@ -241,10 +256,11 @@ export default function AuthFlow({ invite = null }: { invite?: string | null }) 
     if (!signIn || !inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
     setLoading(true)
     try {
-      let res = await signIn.create({ identifier: email, password })
+      const fresh = (await withoutActiveSession()).signIn ?? signIn
+      let res = await fresh.create({ identifier: email, password })
 
       if (res.status === 'needs_first_factor') {
-        res = await signIn.attemptFirstFactor({ strategy: 'password', password })
+        res = await fresh.attemptFirstFactor({ strategy: 'password', password })
       }
 
       if (res.status === 'complete') {
@@ -284,6 +300,23 @@ export default function AuthFlow({ invite = null }: { invite?: string | null }) 
             </>
           )}
         </div>
+        {expired && !clerk.user && (
+          <p className="mb-4 rounded-xl border border-[#f5a03a]/25 bg-[#f5a03a]/[0.06] px-4 py-3 text-[12px] text-[#f5a03a]">
+            Wylogowaliśmy Cię po dłuższej bezczynności. Zaloguj się ponownie.
+          </p>
+        )}
+        {clerk.user && (
+          <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <p className="text-[12px] text-neutral-400 mb-2">
+              Jesteś zalogowany jako <span className="text-[#f0ece4]">{clerk.user.primaryEmailAddress?.emailAddress}</span>.
+              Logowanie na inne konto zamknie tę sesję.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => router.push('/dashboard')} className="flex-1 py-2 rounded-lg bg-[#c8f53a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.2px] cursor-pointer">Przejdź do aplikacji</button>
+              <button onClick={() => clerk.signOut(() => router.refresh())} className="flex-1 py-2 rounded-lg border border-white/10 text-neutral-300 text-[11px] font-mono uppercase tracking-[1.2px] cursor-pointer">Wyloguj</button>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           {[
             { label:'Nowe konto', sub:'Rejestracja', lime:true, fn:()=>{setMode('register');go('email')} },

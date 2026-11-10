@@ -9,12 +9,12 @@ export const metadata = {
   description: 'Zaloguj lub zarejestruj się w RepTrack',
 }
 
-export default async function AuthPage({ searchParams }: { searchParams: { invite?: string } }) {
+export default async function AuthPage({ searchParams }: { searchParams: { invite?: string; expired?: string } }) {
   // Trainer invite carried over from a scanned QR code (/join/[code]).
   const invite = normalizeInviteCode(searchParams.invite)
   if (AUTH_BYPASS) redirect(invite ? `/join/${invite}` : '/dashboard')
 
   const { userId } = await auth()
   if (userId) redirect(invite ? `/join/${invite}` : '/dashboard')
-  return <AuthFlow invite={invite} />
+  return <AuthFlow invite={invite} expired={searchParams.expired === '1'} />
 }

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useUser, useClerk } from '@clerk/nextjs'
 import { useNotificationsStore, selectUnreadCount } from '@/lib/stores/useNotificationsStore'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
+import IdleLogout from '@/components/auth/IdleLogout'
 import { pendingMfaRedirect } from '@/lib/mfa-client'
 
 const NAV_ITEMS = [
@@ -305,6 +306,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Scrollable page */}
         <main className={`flex-1 overflow-y-auto lg:pb-0 ${focusMode ? 'pb-0' : 'pb-20'}`}>
+          <IdleLogout />
           {role === 'athlete' && <InstallPrompt />}
           {children}
         </main>
