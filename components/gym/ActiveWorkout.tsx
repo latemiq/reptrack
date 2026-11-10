@@ -116,6 +116,11 @@ function ExerciseCard({ ex, index, total, expanded, onExpand }: {
             {ex.plan ? `Plan: ${ex.plan}` : `Cel: ${ex.targetSets}×${repsText(ex)}${ex.targetWeight ? ` @ ${fmtKg(ex.targetWeight)} kg` : ''}`}
             {ex.restSeconds ? ` · przerwa ${fmtTime(ex.restSeconds)}` : ''}
           </div>
+          {ex.notes && (
+            <div className="mt-1.5 rounded-lg bg-[#c8f53a]/[0.06] border border-[#c8f53a]/15 px-2.5 py-1.5 text-[12px] text-[#d8e8b0]">
+              <span className="text-[#c8f53a]">Trener:</span> {ex.notes}
+            </div>
+          )}
         </div>
         <div className="relative">
           <button onClick={() => setMenu(m => !m)} aria-label="Opcje ćwiczenia" className="w-8 h-8 rounded-lg text-[#777] hover:text-[#f0ece4] cursor-pointer">⋯</button>
@@ -288,6 +293,12 @@ export default function ActiveWorkout() {
         )}
 
         <div className="flex-1 space-y-2 pt-2 pb-4">
+          {activeWorkout.trainerNote && (
+            <div className="rounded-2xl bg-[#c8f53a]/[0.06] border border-[#c8f53a]/20 px-4 py-3 text-[13px] text-[#d8e8b0]">
+              <div className="text-[11px] font-mono uppercase tracking-[1.5px] text-[#c8f53a] mb-0.5">Uwaga trenera do treningu</div>
+              {activeWorkout.trainerNote}
+            </div>
+          )}
           {activeWorkout.exercises.length === 0 && !picking && (
             <p className="text-center text-[13px] text-[#666] py-8">Pusty trening — dodaj pierwsze ćwiczenie.</p>
           )}

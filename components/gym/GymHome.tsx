@@ -15,7 +15,7 @@ interface Overview {
   week: { days: boolean[]; today: number; done: number; goal: number | null }
   tonnage: { thisWeek: number; lastWeek: number }
   recentPrs: PrEvent[]
-  planToday: { planName: string; name: string; exercises: PlannedExercise[] } | null
+  planToday: { planName: string; name: string; notes: string; exercises: PlannedExercise[] } | null
 }
 
 const DAYS = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd']
@@ -29,6 +29,7 @@ const fromPlan = (e: PlannedExercise) => ({
   targetWeight: e.weightKg,
   restSeconds: e.restSeconds ?? 120,
   plan: formatPrescription(e),
+  notes: e.notes || undefined,
 })
 
 const repsLabel = (min: number, max?: number | null) => (max && max !== min ? `${min}–${max}` : String(min))
@@ -59,10 +60,10 @@ export default function GymHome() {
     return [...templates].sort((a, b) => (a.last_used_at ?? '').localeCompare(b.last_used_at ?? ''))[0]
   }, [templates])
 
-  const start = async (name: string, exercises: Parameters<typeof startWorkoutWithHistory>[1], templateId?: string) => {
+  const start = async (name: string, exercises: Parameters<typeof startWorkoutWithHistory>[1], templateId?: string, trainerNote?: string) => {
     if (activeWorkout) { router.push(`/gym/log/${activeWorkout.id}`); return }
     setStarting(true)
-    const id = await startWorkoutWithHistory(name, exercises, templateId)
+    const id = await startWorkoutWithHistory(name, exercises, templateId, trainerNote)
     if (id) router.push(`/gym/log/${id}`)
     else setStarting(false)
   }
@@ -72,7 +73,7 @@ export default function GymHome() {
 
   const plan = overview?.planToday
   const hero = plan
-    ? { kicker: 'Dziś · od trenera', name: plan.name, items: plan.exercises.map(e => `${e.name} ${e.sets}×${repsLabel(e.repsMin ?? e.repsMax ?? 0, e.repsMax)}`), go: () => start(plan.name, plan.exercises.map(fromPlan)) }
+    ? { kicker: 'Dziś · od trenera', name: plan.name, items: plan.exercises.map(e => `${e.name} ${e.sets}×${repsLabel(e.repsMin ?? e.repsMax ?? 0, e.repsMax)}`), note: plan.notes, go: () => start(plan.name, plan.exercises.map(fromPlan), undefined, plan.notes) }
     : suggested
       ? { kicker: suggested.last_used_at ? `Proponowany · ostatnio ${relativeDay(suggested.last_used_at)}` : 'Proponowany', name: suggested.name, items: suggested.exercises.map(e => `${e.name} ${e.targetSets}×${repsLabel(e.targetReps, e.targetRepsMax)}`), go: () => startTemplate(suggested) }
       : null
@@ -136,6 +137,11 @@ export default function GymHome() {
           <div className="rounded-2xl p-4 bg-[#c8f53a] text-[#1a2400]">
             <div className="text-[11px] font-mono uppercase tracking-[1.5px]">{hero.kicker}</div>
             <div className="font-display text-[22px] font-black my-0.5">{hero.name}</div>
+            {'note' in hero && hero.note && (
+              <div className="text-[12px] leading-relaxed mb-2 rounded-lg bg-[#1a2400]/10 px-2.5 py-1.5">
+                <span className="font-medium">Uwaga trenera:</span> {hero.note}
+              </div>
+            )}
             <div className="text-[12px] leading-relaxed mb-3 line-clamp-2">
               {hero.items.slice(0, 3).join(' · ')}{hero.items.length > 3 ? ` · +${hero.items.length - 3}` : ''}
             </div>

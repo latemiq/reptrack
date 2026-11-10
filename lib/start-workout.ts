@@ -17,12 +17,14 @@ export async function startWorkoutWithHistory(
   name: string,
   exercises: Omit<ExerciseEntry, 'id' | 'sets' | 'previous'>[],
   templateId?: string,
+  trainerNote?: string,
 ): Promise<string | null> {
   const previous = await fetchPrevious(Array.from(new Set(exercises.map(e => e.exerciseId))))
   useWorkoutStore.getState().startWorkout(
     name,
     exercises.map(ex => ({ ...ex, id: crypto.randomUUID(), previous: previous[ex.exerciseId] })),
     templateId,
+    trainerNote,
   )
   return useWorkoutStore.getState().activeWorkout?.id ?? null
 }

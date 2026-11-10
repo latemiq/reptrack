@@ -44,13 +44,13 @@ export async function GET() {
   for (const w of thisWeek) days[weekdayIndex(new Date(w.started_at))] = true
 
   // Today's session from an active trainer plan (1 = Monday in the plan model).
-  let planToday: { planName: string; name: string; exercises: PlannedExercise[] } | null = null
+  let planToday: { planName: string; name: string; notes: string; exercises: PlannedExercise[] } | null = null
   for (const row of (plans ?? []) as unknown as MacroDbRow[]) {
     const plan = macroFromRow(row)
     const idx = currentWeekIndex(plan.startDate, now.getTime())
     const week = plan.mesocycles.flatMap(m => m.microcycles)[idx]
     const session = week?.sessions.find(s => s.dayOfWeek === weekdayIndex(now) + 1)
-    if (session) { planToday = { planName: plan.name, name: session.name, exercises: session.exercises }; break }
+    if (session) { planToday = { planName: plan.name, name: session.name, notes: session.notes, exercises: session.exercises }; break }
   }
 
   const recentPrs = findPrs(list)

@@ -37,6 +37,8 @@ export interface ActiveWorkout {
   startedAt: number
   exercises: ExerciseEntry[]
   notes?: string
+  /** Trainer's note for the whole session (from the plan); shown, never saved as the athlete's notes. */
+  trainerNote?: string
 }
 
 interface RestTimerState {
@@ -50,7 +52,7 @@ interface WorkoutStore {
   activeWorkout: ActiveWorkout | null
   restTimer: RestTimerState
 
-  startWorkout: (name: string, exercises: Omit<ExerciseEntry, 'sets'>[], templateId?: string) => void
+  startWorkout: (name: string, exercises: Omit<ExerciseEntry, 'sets'>[], templateId?: string, trainerNote?: string) => void
   finishWorkout: () => ActiveWorkout | null
   cancelWorkout: () => void
 
@@ -98,12 +100,13 @@ export const useWorkoutStore = create<WorkoutStore>()(
       activeWorkout: null,
       restTimer: emptyTimer,
 
-      startWorkout: (name, exercises, templateId) => {
+      startWorkout: (name, exercises, templateId, trainerNote) => {
         set({
           activeWorkout: {
             id: newId(),
             name,
             templateId: templateId ?? null,
+            trainerNote: trainerNote || undefined,
             startedAt: Date.now(),
             exercises: exercises.map(ex => ({ ...ex, sets: plannedSets(ex) })),
           },
