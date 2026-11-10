@@ -36,7 +36,7 @@ export async function getUserId(): Promise<string | null> {
   }
 }
 
-export const unauthorized = () => NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export const unauthorized = () => NextResponse.json({ error: 'Zaloguj się, aby kontynuować.' }, { status: 401 })
 
 /**
  * Makes sure a profiles row exists. The Clerk webhook normally creates it,

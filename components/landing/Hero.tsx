@@ -45,7 +45,7 @@ export function Hero() {
 
         {/* Subtitle */}
         <p className="hero-sub font-dm-sans font-light text-[#555] text-lg md:text-xl max-w-xl mb-10 leading-relaxed">
-          Jedno miejsce dla siłowni i biegania. AI analizuje Twoje dane, czyta screenshoty z Garmina i Stravy, i daje Ci konkretne wskazówki — nie ogólniki.
+          Jedno miejsce dla siłowni i biegania. AI analizuje Twoje dane, czyta zrzuty ekranu z Garmina i Stravy, i daje Ci konkretne wskazówki — nie ogólniki.
         </p>
 
         {/* Buttons */}
@@ -66,9 +66,9 @@ export function Hero() {
         {/* Quick stats */}
         <div className="flex flex-wrap gap-8 mt-16 pt-8 border-t border-[#1e1e1e]">
           {[
-            { value: '12 400', suffix: ' kg', label: 'Avg weekly volume' },
-            { value: '4.8', suffix: '/5', label: 'AI accuracy score' },
-            { value: '38', suffix: ' km', label: 'Avg weekly run' },
+            { value: '12 400', suffix: ' kg', label: 'Średni tonaż tygodniowo' },
+            { value: '4.8', suffix: '/5', label: 'Ocena trafności AI' },
+            { value: '38', suffix: ' km', label: 'Średnio biegu tygodniowo' },
           ].map((s, i) => (
             <div key={i} className="hero-stats">
               <div className="font-syne font-bold text-2xl text-[#f0ece4]">

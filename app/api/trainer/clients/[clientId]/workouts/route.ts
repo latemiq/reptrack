@@ -23,7 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: { clientId: st
 
   if (error) {
     console.error('Client workouts fetch error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   return NextResponse.json({ workouts: data ?? [] })

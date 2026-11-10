@@ -19,7 +19,7 @@ export function normalizeInviteCode(raw: unknown): string | null {
   return /^[A-Z0-9]{4,12}$/.test(code) ? code : null
 }
 
-export const forbidden = (message = 'Forbidden') => NextResponse.json({ error: message }, { status: 403 })
+export const forbidden = (message = 'Brak dostępu') => NextResponse.json({ error: message }, { status: 403 })
 
 export async function getRole(userId: string): Promise<Role> {
   const { data } = await supabaseAdmin().from('profiles').select('role').eq('id', userId).maybeSingle()

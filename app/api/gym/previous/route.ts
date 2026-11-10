@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error('Previous sets error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   const previous: Record<string, { weightKg: number | null; reps: number | null }[]> = {}

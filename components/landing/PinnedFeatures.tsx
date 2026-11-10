@@ -12,7 +12,7 @@ const FEATURES = [
     num: '01',
     title: ['Wszystko', 'w jednym', 'miejscu'],
     desc: 'Dashboard łączy dane z siłowni i biegania. Widzisz tygodniowy wolumen, dystans, wagę i progresję w jednym widoku — bez przełączania między aplikacjami.',
-    tags: ['Dashboard', 'Tygodniowy przegląd', 'Progresja'],
+    tags: ['Pulpit', 'Tygodniowy przegląd', 'Progresja'],
   },
   {
     num: '02',
@@ -22,15 +22,15 @@ const FEATURES = [
   },
   {
     num: '03',
-    title: ['Screenshot', '→ dane', 'automatycznie'],
-    desc: 'Zrób screenshot z Garmin Connect, Stravy lub Apple Fitness i wgraj go. AI odczyta dystans, tempo, tętno i datę — bez ręcznego wpisywania.',
-    tags: ['Garmin', 'Strava', 'Claude Vision', 'AI'],
+    title: ['Zrzut ekranu', '→ dane', 'automatycznie'],
+    desc: 'Zrób zrzut ekranu z Garmin Connect, Stravy lub Apple Fitness i wgraj go. AI odczyta dystans, tempo, tętno i datę — bez ręcznego wpisywania.',
+    tags: ['Garmin', 'Strava', 'Zrzuty ekranu', 'AI'],
   },
   {
     num: '04',
-    title: ['AI Coach', 'który naprawdę', 'rozumie'],
+    title: ['Asystent AI', 'który naprawdę', 'rozumie'],
     desc: 'Co tydzień AI analizuje Twoje dane — identyfikuje plateau, śledzi zmęczenie i daje jedną konkretną rekomendację. Żadnych ogólników.',
-    tags: ['Claude AI', 'Tygodniowy raport', 'Personalizacja'],
+    tags: ['Asystent AI', 'Tygodniowy raport', 'Personalizacja'],
   },
 ]
 

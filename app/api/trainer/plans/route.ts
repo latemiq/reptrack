@@ -22,7 +22,7 @@ export async function GET() {
 
   if (error) {
     console.error('Trainer plans fetch error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   const plans = ((data ?? []) as unknown as MacroSummaryRow[]).map(r => {

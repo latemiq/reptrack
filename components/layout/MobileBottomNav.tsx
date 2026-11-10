@@ -66,7 +66,7 @@ const NAV_ITEMS = [
   { href: '/dashboard',      label: 'Home',    Icon: DashIcon,   activeColor: '#c8f53a' },
   { href: '/gym',            label: 'Siłownia', Icon: GymIcon,   activeColor: '#f5a03a' },
   { href: '/running',        label: 'Bieganie', Icon: RunIcon,   activeColor: '#c8f53a' },
-  { href: '/coach',          label: 'Coach',   Icon: CoachIcon,  activeColor: '#c8f53a' },
+  { href: '/coach',          label: 'Asystent',   Icon: CoachIcon,  activeColor: '#c8f53a' },
   { href: '/notifications',  label: 'Powiad.', Icon: BellIcon,   activeColor: '#c8f53a' },
 ]
 

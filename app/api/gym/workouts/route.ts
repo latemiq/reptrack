@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error('Workouts fetch error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   return NextResponse.json({ workouts: data ?? [] })
@@ -57,15 +57,15 @@ export async function POST(req: NextRequest) {
   const workout = await req.json().catch(() => null) as IncomingWorkout | null
 
   if (!workout?.name || !Array.isArray(workout.exercises)) {
-    return NextResponse.json({ error: 'Invalid workout' }, { status: 400 })
+    return NextResponse.json({ error: 'Nieprawidłowe dane treningu' }, { status: 400 })
   }
 
   const finishedAt = Date.now()
   if (!Number.isFinite(workout.startedAt) || workout.startedAt > finishedAt) {
-    return NextResponse.json({ error: 'Invalid workout start time' }, { status: 400 })
+    return NextResponse.json({ error: 'Nieprawidłowy czas rozpoczęcia treningu' }, { status: 400 })
   }
   if (workout.exercises.some(ex => !ex.exerciseId || !Array.isArray(ex.sets))) {
-    return NextResponse.json({ error: 'Invalid workout exercises' }, { status: 400 })
+    return NextResponse.json({ error: 'Nieprawidłowa lista ćwiczeń' }, { status: 400 })
   }
 
   const durationSeconds = Math.floor((finishedAt - workout.startedAt) / 1000)

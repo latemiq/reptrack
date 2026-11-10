@@ -77,7 +77,7 @@ export async function GET() {
 
   if (workoutsRes.error || plansRes.error) {
     console.error('Trainer overview error:', workoutsRes.error ?? plansRes.error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   const workouts = (workoutsRes.data ?? []) as unknown as WorkoutRow[]

@@ -40,7 +40,7 @@ const CATEGORY_CFG: Record<Category, { label: string; color: string; bg: string 
   gym:      { label: 'Siłownia',  color: '#f5a03a', bg: 'rgba(245,160,58,0.1)'  },
   running:  { label: 'Bieganie',  color: '#c8f53a', bg: 'rgba(200,245,58,0.1)'  },
   diet:     { label: 'Dieta',     color: '#3cc8ff', bg: 'rgba(60,200,255,0.1)'  },
-  recovery: { label: 'Recovery',  color: '#c88cff', bg: 'rgba(200,140,255,0.1)' },
+  recovery: { label: 'Regeneracja',  color: '#c88cff', bg: 'rgba(200,140,255,0.1)' },
 }
 
 const SUGGESTED_PROMPTS = [
@@ -67,7 +67,7 @@ const dayGroup = (d: Date): 'today' | 'yesterday' | 'older' => {
 const WELCOME: Message = {
   id: 'welcome',
   role: 'assistant',
-  content: 'Cześć! Jestem Twoim AI Coachem. Widzę Twoje treningi, biegi, pomiary wagi i cele z ostatnich 30 dni.\n\nZapytaj o analizę postępów, plan na kolejny tydzień albo cokolwiek, co Cię nurtuje w treningu.',
+  content: 'Cześć! Jestem Twoim Asystentem AI. Widzę Twoje treningi, biegi, pomiary wagi i cele z ostatnich 30 dni.\n\nZapytaj o analizę postępów, plan na kolejny tydzień albo cokolwiek, co Cię nurtuje w treningu.',
   timestamp: new Date(),
 }
 
@@ -225,9 +225,9 @@ export default function CoachChat() {
   }
 
   const exportConversation = () => {
-    const title = conversations.find(c => c.id === activeConvId)?.title ?? 'Rozmowa z AI Coachem'
+    const title = conversations.find(c => c.id === activeConvId)?.title ?? 'Rozmowa z Asystentem AI'
     const md = [`# ${title}`, '', ...messages.map(m =>
-      `**${m.role === 'assistant' ? 'Coach AI' : 'Ty'}** · ${m.timestamp.toLocaleString('pl-PL')}\n\n${m.content}\n`)].join('\n')
+      `**${m.role === 'assistant' ? 'Asystent AI' : 'Ty'}** · ${m.timestamp.toLocaleString('pl-PL')}\n\n${m.content}\n`)].join('\n')
     const url = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }))
     const a = document.createElement('a')
     a.href = url
@@ -493,7 +493,7 @@ export default function CoachChat() {
               </div>
               <div className="text-[9.5px] font-mono text-[#c8f53a] uppercase tracking-[1.8px] flex items-center gap-1.5 mt-0.5">
                 <span className="w-1 h-1 rounded-full bg-[#c8f53a] animate-pulse" />
-                Online · Claude Opus 5.5
+                Online
               </div>
             </div>
           </div>
@@ -541,7 +541,7 @@ export default function CoachChat() {
               </div>
               <div className="max-w-[85%] md:max-w-[75%] min-w-0">
                 <div className={`text-[9px] font-mono text-[#444] uppercase tracking-wider mb-1.5 flex items-center gap-1.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <span>{msg.role === 'assistant' ? 'Coach AI' : 'Ty'}</span>
+                  <span>{msg.role === 'assistant' ? 'Asystent AI' : 'Ty'}</span>
                   <span>·</span>
                   <span>{msg.timestamp.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
@@ -563,7 +563,7 @@ export default function CoachChat() {
               <div className="w-[30px] h-[30px] rounded-lg flex-shrink-0 flex items-center justify-center text-[11px] font-mono font-bold bg-[#c8f53a]/10 border border-[#c8f53a]/25 text-[#c8f53a]">AI</div>
               <div className="max-w-[85%] md:max-w-[75%]">
                 <div className="text-[9px] font-mono uppercase tracking-wider mb-1.5 text-[#c8f53a]">
-                  Coach AI · analizuje dane treningowe...
+                  Asystent AI · analizuje dane treningowe…
                 </div>
                 <div className="bg-[#111] border border-[#1a1a1a] rounded-tl-2xl rounded-bl-[4px] rounded-tr-2xl rounded-br-2xl">
                   <AnalyzingIndicator text={analyzingText} />

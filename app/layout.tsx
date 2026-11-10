@@ -20,8 +20,8 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', weight:
 const dmMono = DM_Mono({ subsets: ['latin'], variable: '--font-dm-mono', weight: ['400', '500'] })
 
 export const metadata: Metadata = {
-  title: 'RepTrack — AI Fitness Tracker',
-  description: 'Track gym sessions and runs with AI-powered insights. Built for athletes who want data, not guesswork.',
+  title: 'RepTrack — trening i postępy',
+  description: 'Zapisuj treningi siłowe i biegi, a AI pokaże Ci postępy i podpowie, co dalej. Dla tych, którzy wolą dane niż zgadywanie.',
   applicationName: 'RepTrack',
   // iPhone home-screen app: no Safari UI, dark status bar, own icon.
   appleWebApp: {
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   openGraph: {
     title: 'RepTrack',
-    description: 'AI-powered fitness tracker for gym & running',
+    description: 'Siłownia i bieganie w jednym miejscu, z analizą AI',
     type: 'website',
   },
 }

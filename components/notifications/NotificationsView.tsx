@@ -8,7 +8,7 @@ const FILTERS: { key: NotifCategory | 'all'; label: string }[] = [
   { key: 'all',      label: 'Wszystkie' },
   { key: 'training', label: 'Treningi'  },
   { key: 'goals',    label: 'Cele'      },
-  { key: 'coach',    label: 'AI Coach'  },
+  { key: 'coach',    label: 'Asystent AI'  },
 ]
 
 function BellIcon() {

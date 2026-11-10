@@ -6,7 +6,7 @@ import { MUSCLE_GROUP_PL, MUSCLE_PL, muscleToGroup } from '@/lib/exercises/trans
 
 export interface ExerciseOption { id: string; name: string }
 
-interface AtlasRow { id: string; name: string; primary_muscles?: string[] | null }
+interface AtlasRow { id: string; name: string; name_en?: string; primary_muscles?: string[] | null }
 interface Item extends ExerciseOption { muscle: string; haystack: string; popular: boolean }
 
 /** Lowercase without Polish diacritics, so "lydki" finds "łydki". */
@@ -43,7 +43,7 @@ export default function ExercisePicker({ onPick, accent = '#f5a03a', showGroups 
         const group = muscleToGroup(primary)
         // Group label too, so "plecy" also finds lats / middle-back atlas entries.
         const groupLabel = group ? MUSCLE_GROUP_PL[group].label : ''
-        return { id: o.id, name: o.name, muscle, popular: false, haystack: norm(`${o.name} ${muscle} ${groupLabel}`) }
+        return { id: o.id, name: o.name, muscle, popular: false, haystack: norm(`${o.name} ${o.name_en ?? ''} ${muscle} ${groupLabel}`) }
       })))
       .catch(() => setAtlas([]))
   }, [])

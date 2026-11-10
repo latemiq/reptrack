@@ -40,7 +40,7 @@ export async function GET() {
 
   if (runsRes.error || workoutsRes.error || goalsRes.error) {
     console.error('Notifications fetch error:', runsRes.error ?? workoutsRes.error ?? goalsRes.error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   const runs = runsRes.data ?? []
@@ -128,7 +128,7 @@ export async function GET() {
       id: `idle-${dayKey(new Date())}`,
       category: 'coach',
       title: 'Dawno nie trenowałeś',
-      body: `Ostatnia aktywność ${daysIdle} dni temu. Zapytaj AI Coacha o plan powrotu do treningów.`,
+      body: `Ostatnia aktywność ${daysIdle} dni temu. Zapytaj Asystenta AI o plan powrotu do treningów.`,
       at: new Date().toISOString(),
       accent: LIME,
     })
@@ -138,7 +138,7 @@ export async function GET() {
       id: 'welcome',
       category: 'coach',
       title: 'Witaj w RepTrack!',
-      body: 'Zaloguj pierwszy trening albo bieg — dashboard i AI Coach zaczną pracować na Twoich danych.',
+      body: 'Zaloguj pierwszy trening albo bieg — pulpit i Asystent AI zaczną pracować na Twoich danych.',
       at: new Date().toISOString(),
       accent: LIME,
     })

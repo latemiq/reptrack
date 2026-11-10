@@ -7,7 +7,7 @@ interface PhoneFrameProps {
 
 const PANE_CONTENT = [
   {
-    title: 'Dashboard',
+    title: 'Pulpit',
     items: [
       { label: 'Tygodniowy vol.', value: '12 400 kg', accent: 'lime' },
       { label: 'Dystans', value: '38.2 km', accent: 'orange' },
@@ -25,7 +25,7 @@ const PANE_CONTENT = [
     chart: [55, 60, 70, 65, 75, 80, 78],
   },
   {
-    title: 'Garmin Import',
+    title: 'Import z Garmina',
     items: [
       { label: 'Dystans', value: '10.5 km', accent: 'orange' },
       { label: 'Tempo', value: '5:12 /km', accent: 'orange' },
@@ -34,11 +34,11 @@ const PANE_CONTENT = [
     chart: [30, 45, 60, 55, 70, 65, 80],
   },
   {
-    title: 'AI Coach',
+    title: 'Asystent AI',
     items: [
       { label: 'Priorytet', value: 'Regeneracja', accent: 'lime' },
       { label: 'Progres', value: '+12% vol.', accent: 'lime' },
-      { label: 'HRV trend', value: '↑ Dobry', accent: 'orange' },
+      { label: 'Trend HRV', value: '↑ Dobry', accent: 'orange' },
     ],
     chart: [50, 55, 65, 70, 68, 80, 85],
   },

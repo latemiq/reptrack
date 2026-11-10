@@ -4,8 +4,8 @@ import CoachChat from '@/components/coach/CoachChat'
 import { AUTH_BYPASS } from '@/lib/auth-bypass'
 
 export const metadata = {
-  title: 'RepTrack – Coach AI',
-  description: 'Konsultacje z AI Coachem na podstawie Twoich danych treningowych',
+  title: 'RepTrack — Asystent AI',
+  description: 'Konsultacje z Asystentem AI na podstawie Twoich danych treningowych',
 }
 
 export default async function CoachPage() {

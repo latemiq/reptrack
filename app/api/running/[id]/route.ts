@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (error) {
     console.error('Run fetch error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
   if (!data) return NextResponse.json({ error: 'Nie znaleziono biegu' }, { status: 404 })
 

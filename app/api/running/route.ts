@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error('Runs fetch error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   return NextResponse.json({ runs: data ?? [] })

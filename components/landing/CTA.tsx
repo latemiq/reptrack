@@ -48,7 +48,7 @@ export function CTA() {
       <div className="mt-24 pt-8 border-t border-[#1e1e1e] flex flex-wrap justify-between items-center gap-4">
         <div className="font-syne font-bold text-[#f0ece4] text-lg">RepTrack</div>
         <div className="font-dm-mono text-[11px] text-[#333] tracking-wider">
-          © 2025 · Built with Claude AI · Next.js 14
+          © 2026 RepTrack
         </div>
       </div>
     </section>

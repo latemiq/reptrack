@@ -105,7 +105,8 @@ Zasady:
   } catch (e) {
     console.error('Parse-screenshot error:', e)
     return NextResponse.json({
-      error: e instanceof Error ? e.message : 'Internal error',
+      // Library errors are English and technical — log them, show a plain Polish message.
+      error: 'Nie udało się odczytać zrzutu ekranu. Spróbuj ponownie albo wpisz bieg ręcznie.',
     }, { status: 500 })
   }
 }

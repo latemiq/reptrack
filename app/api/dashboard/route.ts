@@ -24,7 +24,7 @@ export async function GET() {
   const failed = [profileRes, runsRes, workoutsRes, weightsRes, goalsRes, setsRes].find(r => r.error)
   if (failed) {
     console.error('Dashboard fetch error:', failed.error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   const runs = runsRes.data ?? []

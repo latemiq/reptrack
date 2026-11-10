@@ -18,7 +18,7 @@ export async function GET() {
 
   if (error) {
     console.error('Templates fetch error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   // First visit: seed a starter PPL split so the gym screen isn't empty.

@@ -4,8 +4,8 @@ import { useGSAP } from '@gsap/react'
 import { gsap } from 'gsap'
 
 const ITEMS = [
-  'Siłownia', '·', 'Bieganie', '·', 'AI Coach', '·', 'Garmin', '·', 'Strava',
-  '·', 'Progresja', '·', 'Analiza', '·', 'Screenshoty', '·', 'Dashboard', '·',
+  'Siłownia', '·', 'Bieganie', '·', 'Asystent AI', '·', 'Garmin', '·', 'Strava',
+  '·', 'Progresja', '·', 'Analiza', '·', 'Zrzuty ekranu', '·', 'Pulpit', '·',
 ]
 
 export function Marquee() {

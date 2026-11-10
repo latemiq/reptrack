@@ -6,6 +6,7 @@ import gsap from 'gsap'
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { fetchInvitePreview, redeemInvite } from '@/lib/invites'
+import { clerkErrorPl } from '@/lib/clerk-errors'
 
 type Mode = 'choose' | 'login' | 'register'
 type Step = 'email' | 'password' | 'verify' | 'profile' | 'goals' | 'stats' | 'success'
@@ -173,8 +174,7 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
       setEmail(normalizedEmail)
       go('verify')
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
-      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
+      setError(clerkErrorPl(e))
     } finally { setLoading(false) }
   }
 
@@ -193,8 +193,7 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
         setError(`Nieoczekiwany status: ${res.status}`)
       }
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
-      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
+      setError(clerkErrorPl(e))
     } finally { setLoading(false) }
   }
 
@@ -239,8 +238,7 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
       go('success')
       setTimeout(navigateToDashboard, 1500)
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
-      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
+      setError(clerkErrorPl(e))
     } finally { setLoading(false) }
   }
 
@@ -278,8 +276,7 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
         setError(`Nie można zakończyć logowania (status: ${res.status})`)
       }
     } catch (e: unknown) {
-      const clerkErr = e as { errors?: { longMessage?: string; message: string }[] }
-      setError(clerkErr.errors?.[0]?.longMessage ?? clerkErr.errors?.[0]?.message ?? String(e))
+      setError(clerkErrorPl(e))
     } finally { setLoading(false) }
   }
 

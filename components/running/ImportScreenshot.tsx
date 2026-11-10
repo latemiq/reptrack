@@ -193,7 +193,7 @@ export default function ImportScreenshot() {
           <div>
             <p className="text-[10px] font-mono text-[#444] uppercase tracking-[2px] mb-1">Bieganie · Import</p>
             <h1 className="font-display text-[24px] font-black">
-              Wrzuć <em className="not-italic text-[#f5a03a]">screenshot</em>
+              Wrzuć <em className="not-italic text-[#f5a03a]">zrzut ekranu</em>
             </h1>
             <p className="text-[12px] text-[#666] mt-1">AI odczyta dystans, tempo, tętno i resztę danych</p>
           </div>
@@ -231,7 +231,7 @@ export default function ImportScreenshot() {
                 </div>
 
                 <div className="font-display text-[18px] font-black mb-2">
-                  {isDragging ? 'Upuść screenshot tutaj' : 'Przeciągnij screenshot lub kliknij'}
+                  {isDragging ? 'Upuść zrzut ekranu tutaj' : 'Przeciągnij zrzut ekranu lub kliknij'}
                 </div>
                 <p className="text-[12px] text-[#666] mb-4">
                   Garmin Connect · Strava · Apple Fitness · inne aplikacje
@@ -270,7 +270,7 @@ export default function ImportScreenshot() {
               <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4 bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-5">
                 {imageUrl && (
                   <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
-                    <Image src={imageUrl} alt="Screenshot" fill sizes="200px" unoptimized className="object-cover" />
+                    <Image src={imageUrl} alt="Zrzut ekranu" fill sizes="200px" unoptimized className="object-cover" />
                     <div className="absolute inset-0 pointer-events-none">
                       <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#f5a03a] to-transparent animate-[importScan_2s_ease-in-out_infinite]" />
                     </div>
@@ -284,10 +284,10 @@ export default function ImportScreenshot() {
                           style={{ animationDelay: `${i*0.2}s` }} />
                       ))}
                     </div>
-                    <span className="text-[10px] font-mono text-[#f5a03a] uppercase tracking-[1.5px]">Claude Vision analizuje</span>
+                    <span className="text-[10px] font-mono text-[#f5a03a] uppercase tracking-[1.5px]">AI analizuje</span>
                   </div>
                   <div className="font-display text-[20px] font-black mb-2">
-                    Czytam <em className="not-italic text-[#f5a03a]">screenshot</em>...
+                    Czytam <em className="not-italic text-[#f5a03a]">zrzut ekranu</em>...
                   </div>
                   <p className="text-[12px] text-[#666] leading-relaxed">
                     Rozpoznaję typ aplikacji, wyciągam dystans, tempo, tętno i czas. To zwykle trwa 3-5 sekund.
@@ -317,7 +317,7 @@ export default function ImportScreenshot() {
               <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-4">
                 {imageUrl && (
                   <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#161616]">
-                    <Image src={imageUrl} alt="Screenshot" fill sizes="180px" unoptimized className="object-cover" />
+                    <Image src={imageUrl} alt="Zrzut ekranu" fill sizes="180px" unoptimized className="object-cover" />
                   </div>
                 )}
 
@@ -356,7 +356,7 @@ export default function ImportScreenshot() {
                   <div className="flex gap-2 mt-5">
                     <button onClick={reset}
                       className="flex-1 py-2.5 rounded-lg bg-[#111] border border-[#1e1e1e] text-[#888] text-[11px] font-mono uppercase tracking-[1.3px] hover:border-[#333] hover:text-[#ccc] transition-all cursor-none">
-                      Inny screenshot
+                      Inny zrzut ekranu
                     </button>
                     <button onClick={handleSave} disabled={!canSave}
                       className="flex-[2] py-2.5 rounded-lg bg-[#f5a03a] text-[#080808] text-[11px] font-mono uppercase tracking-[1.3px] font-medium hover:bg-[#ffb04a] hover:-translate-y-px active:scale-[0.98] transition-all cursor-none disabled:opacity-40 disabled:hover:translate-y-0">

@@ -27,7 +27,7 @@ export async function GET() {
 
   if (error) {
     console.error('Gym overview error:', error)
-    return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
   const list = (workouts ?? []) as unknown as StatWorkout[]

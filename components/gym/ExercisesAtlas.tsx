@@ -18,6 +18,8 @@ export interface ExerciseRow {
   id: string
   catalog_id: string | null
   name: string
+  /** Original English name when the catalog entry is shown in Polish. */
+  name_en?: string
   source: 'catalog' | 'custom'
   level: 'beginner' | 'intermediate' | 'expert' | null
   force: string | null
@@ -289,7 +291,8 @@ export default function ExercisesAtlas({ pickMode = false, onPick }: ExercisesAt
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return exercises.filter(ex => {
-      if (q && !ex.name.toLowerCase().includes(q)) return false
+      // Polish name, plus the original English one (e.g. "bench press") when translated.
+      if (q && !`${ex.name} ${ex.name_en ?? ''}`.toLowerCase().includes(q)) return false
       if (muscleGroup) {
         const groups = muscleToGroupSet([...ex.primary_muscles, ...ex.secondary_muscles])
         if (!groups.has(muscleGroup)) return false

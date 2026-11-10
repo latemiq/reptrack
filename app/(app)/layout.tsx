@@ -11,7 +11,7 @@ import { pendingMfaRedirect } from '@/lib/mfa-client'
 const NAV_ITEMS = [
   {
     href: '/dashboard',
-    label: 'Dashboard',
+    label: 'Pulpit',
     icon: (
       <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
         <rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
@@ -46,7 +46,7 @@ const NAV_ITEMS = [
   },
   {
     href: '/coach',
-    label: 'AI Coach',
+    label: 'Asystent AI',
     icon: (
       <svg width="20" height="20" fill="none" viewBox="0 0 20 20">
         <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8Z" stroke="currentColor" strokeWidth="1.5" />

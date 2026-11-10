@@ -4,7 +4,7 @@ import Dashboard from '@/components/dashboard/Dashboard'
 import { AUTH_BYPASS } from '@/lib/auth-bypass'
 
 export const metadata = {
-  title: 'RepTrack — Dashboard',
+  title: 'RepTrack — Pulpit',
 }
 
 export default async function DashboardPage() {

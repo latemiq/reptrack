@@ -65,7 +65,7 @@ export async function PATCH(req: Request) {
   }
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
+    return NextResponse.json({ error: 'Brak pól do zapisania' }, { status: 400 })
   }
 
   updates.updated_at = new Date().toISOString()

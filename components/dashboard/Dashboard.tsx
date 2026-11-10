@@ -331,7 +331,7 @@ export default function Dashboard() {
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#c8f53a]/40 to-transparent" />
                 <div className="flex items-center gap-2.5 mb-3">
                   <div className="w-2 h-2 rounded-full bg-[#c8f53a] animate-pulse" />
-                  <span className="text-[10px] font-mono text-[#c8f53a] uppercase tracking-[2px]">AI Coach</span>
+                  <span className="text-[10px] font-mono text-[#c8f53a] uppercase tracking-[2px]">Asystent AI</span>
                   <span className="ml-auto text-[9px] font-mono text-[#444] group-hover:text-[#c8f53a] transition-colors">Otwórz →</span>
                 </div>
                 <p className="text-[12px] text-[#888] leading-relaxed">

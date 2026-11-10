@@ -7,10 +7,10 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 gsap.registerPlugin(ScrollTrigger)
 
 const STATS = [
-  { value: 12400, suffix: ' kg', label: 'Avg weekly volume tracked', color: 'lime' },
-  { value: 38, suffix: ' km', label: 'Average weekly running distance', color: 'orange' },
-  { value: 5, suffix: 'x', label: 'Workouts logged per week', color: 'lime' },
-  { value: 98, suffix: '%', label: 'Screenshot parsing accuracy', color: 'orange' },
+  { value: 12400, suffix: ' kg', label: 'Średni tonaż tygodniowo', color: 'lime' },
+  { value: 38, suffix: ' km', label: 'Średni dystans biegowy tygodniowo', color: 'orange' },
+  { value: 5, suffix: 'x', label: 'Treningów w tygodniu', color: 'lime' },
+  { value: 98, suffix: '%', label: 'Trafność odczytu zrzutów ekranu', color: 'orange' },
 ]
 
 export function Stats() {

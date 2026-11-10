@@ -22,8 +22,8 @@ export default function LandingPage() {
         <nav className="hidden md:flex items-center gap-8">
           {[
             { label: 'Funkcje', href: '#features' },
-            { label: 'Dashboard', href: '/dashboard' },
-            { label: 'AI Coach', href: '/coach' },
+            { label: 'Pulpit', href: '/dashboard' },
+            { label: 'Asystent AI', href: '/coach' },
           ].map((item) => (
             <a key={item.label} href={item.href}
               className="font-dm-sans text-sm text-[#555] hover:text-[#f0ece4] transition-colors">

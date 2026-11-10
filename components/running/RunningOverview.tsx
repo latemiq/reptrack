@@ -483,7 +483,7 @@ export default function RunningOverview() {
                   {filteredRuns.length === 0 ? (
                     <div className="text-center py-10 text-[12px] text-[#555]">
                       {allRuns.length === 0
-                        ? <>Nie masz jeszcze żadnych biegów. <button onClick={() => setShowAddRun(true)} className="text-[#f5a03a] hover:underline">Dodaj pierwszy</button> albo zaimportuj screenshot.</>
+                        ? <>Nie masz jeszcze żadnych biegów. <button onClick={() => setShowAddRun(true)} className="text-[#f5a03a] hover:underline">Dodaj pierwszy</button> albo zaimportuj zrzut ekranu.</>
                         : typeFilter === 'all' ? `Brak biegów w okresie: ${RANGE_LONG[rangeFilter]}` : `Brak biegów typu ${TYPE_LABELS[typeFilter]}`}
                     </div>
                   ) : filteredRuns.map(run => (
