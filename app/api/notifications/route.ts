@@ -48,6 +48,29 @@ export async function GET() {
   const goals = (goalsRes.data ?? []) as GoalRow[]
   const out: NotificationOut[] = []
 
+  // Trainer comments on the user's recent workouts (table may not exist yet → skipped).
+  const { data: recentIds } = await supabase.from('workouts').select('id, name').eq('user_id', userId).gte('started_at', new Date(Date.now() - 60 * 86400000).toISOString())
+  if (recentIds?.length) {
+    const { data: comments } = await supabase.from('workout_comments')
+      .select('id, workout_id, author_id, body, created_at')
+      .in('workout_id', recentIds.map(w => w.id)).neq('author_id', userId).gte('created_at', since)
+    const authorIds = Array.from(new Set((comments ?? []).map(c => c.author_id)))
+    const { data: authors } = authorIds.length ? await supabase.from('profiles').select('id, first_name, last_name').in('id', authorIds) : { data: [] }
+    for (const c of comments ?? []) {
+      const a = authors?.find(x => x.id === c.author_id)
+      const who = [a?.first_name, a?.last_name].filter(Boolean).join(' ') || 'Trener'
+      const workout = recentIds.find(w => w.id === c.workout_id)?.name ?? 'trening'
+      out.push({
+        id: `comment-${c.id}`,
+        category: 'training',
+        title: `Nowy komentarz od: ${who}`,
+        body: `${workout}: „${c.body.length > 120 ? `${c.body.slice(0, 117)}…` : c.body}”`,
+        at: c.created_at,
+        accent: LIME,
+      })
+    }
+  }
+
   for (const w of workouts) {
     out.push({
       id: `workout-${w.id}`,

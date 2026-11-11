@@ -438,6 +438,23 @@ $$;
 
 revoke execute on function save_macrocycle(jsonb) from public, anon, authenticated;
 
+-- ─── KOMENTARZE DO TRENINGÓW ─────────────────────────────────────────────────
+-- Rozmowa pod wykonanym treningiem: trener (z aktywną relacją) i właściciel treningu.
+-- Dostęp sprawdza API (service role); RLS bez polityk blokuje klucz anon.
+
+create table if not exists workout_comments (
+  id uuid primary key default gen_random_uuid(),
+  workout_id uuid not null references workouts(id) on delete cascade,
+  author_id text not null,
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz default now()
+);
+
+create index if not exists workout_comments_workout_idx on workout_comments (workout_id, created_at);
+create index if not exists workout_comments_author_idx on workout_comments (author_id, created_at desc);
+
+alter table workout_comments enable row level security;
+
 -- ─── WERYFIKACJA DWUETAPOWA (własna, na darmowym planie Clerk) ───────────────
 -- Clerk obsługuje pierwszy etap (email + hasło). Drugi etap — odcisk palca
 -- (WebAuthn), aplikacja TOTP lub kod z maila — weryfikuje RepTrack, a wynik

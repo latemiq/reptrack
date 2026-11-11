@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fmtKg, fmtTonnes, findPrs, mondayOf, setsSummary, weekdayIndex, type StatSet, type StatWorkout } from '@/lib/gym-stats'
 import GymTabs from '@/components/gym/GymTabs'
+import WorkoutComments from '@/components/gym/WorkoutComments'
+import type { WorkoutComment } from '@/app/api/gym/comments/route'
 
 interface WorkoutRow extends StatWorkout {
   notes: string | null
@@ -45,6 +47,8 @@ export default function WorkoutHistory({ endpoint = '/api/gym/workouts?limit=100
   const [error, setError] = useState('')
   const [openId, setOpenId] = useState<string | null>(null)
   const [month, setMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
+  const [comments, setComments] = useState<Record<string, WorkoutComment[]>>({})
+  const [commentsAvailable, setCommentsAvailable] = useState(false)
 
   useEffect(() => {
     fetch(endpoint)
@@ -57,6 +61,19 @@ export default function WorkoutHistory({ endpoint = '/api/gym/workouts?limit=100
       })
       .catch(() => { setWorkouts([]); setError('Nie udało się wczytać historii.') })
   }, [endpoint])
+
+  // Comments for all loaded workouts in one request (trainer feedback + athlete replies).
+  const loadComments = useCallback(async () => {
+    const ids = (workouts ?? []).map(w => w.id)
+    if (!ids.length) return
+    const res = await fetch(`/api/gym/comments?workouts=${ids.join(',')}`).catch(() => null)
+    if (!res?.ok) return
+    const d = await res.json()
+    setCommentsAvailable(d.available)
+    setComments(d.comments)
+  }, [workouts])
+
+  useEffect(() => { loadComments() }, [loadComments])
 
   const prs = useMemo(() => findPrs(workouts ?? []), [workouts])
   const prSet = useMemo(() => new Set(prs.map(p => `${p.workoutId}:${p.exerciseId}`)), [prs])
@@ -185,6 +202,12 @@ export default function WorkoutHistory({ endpoint = '/api/gym/workouts?limit=100
                       <div className="flex items-center gap-2">
                         <span className="text-[15px] font-medium truncate">{w.name}</span>
                         {prCount > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#2a3a08] text-[#c8f53a] flex-shrink-0">{prCount} PR</span>}
+                        {(comments[w.id]?.length ?? 0) > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#1a1a1a] text-[#bbb] flex-shrink-0 flex items-center gap-1" aria-label={`${comments[w.id].length} komentarzy`}>
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" strokeLinejoin="round" /></svg>
+                            {comments[w.id].length}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[12px] text-[#777]">
                         {date.toLocaleDateString('pl-PL', { weekday: 'short', day: '2-digit', month: '2-digit' })}
@@ -217,6 +240,8 @@ export default function WorkoutHistory({ endpoint = '/api/gym/workouts?limit=100
                         )
                       })}
                       {w.notes && <p className="text-[12px] text-[#888] whitespace-pre-wrap">{w.notes}</p>}
+                      <WorkoutComments workoutId={w.id} comments={comments[w.id] ?? []} available={commentsAvailable}
+                        placeholder={readOnly ? 'Komentarz dla podopiecznego…' : 'Odpowiedz trenerowi…'} onChange={loadComments} />
                       {!readOnly && (
                         <div className="flex justify-end pt-1">
                           <button onClick={() => handleDelete(w.id)} className="text-[11px] text-[#555] hover:text-red-400 cursor-pointer">Usuń trening</button>
