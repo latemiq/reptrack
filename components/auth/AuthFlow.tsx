@@ -9,7 +9,11 @@ import { fetchInvitePreview, redeemInvite } from '@/lib/invites'
 import { clerkErrorPl } from '@/lib/clerk-errors'
 
 type Mode = 'choose' | 'login' | 'register'
-type Step = 'email' | 'password' | 'verify' | 'profile' | 'goals' | 'stats' | 'success'
+type Step = 'email' | 'password' | 'verify' | 'second' | 'profile' | 'goals' | 'stats' | 'success'
+
+/** Second-step methods Clerk may ask for after the password (email_code = new-device check). */
+type SecondStrategy = 'email_code' | 'totp' | 'phone_code' | 'backup_code'
+const SECOND_ORDER: SecondStrategy[] = ['email_code', 'totp', 'phone_code', 'backup_code']
 
 interface Profile { name: string; weight: number; height: number }
 interface TrainingStats { level: string; weeklyDays: number }
@@ -76,7 +80,7 @@ function ErrMsg({ msg }: { msg: string }) {
 }
 
 const BG_MAP: Record<string, number> = {
-  choose:0, email:1, password:2, verify:2, profile:3, goals:4, stats:4, success:5
+  choose:0, email:1, password:2, verify:2, second:2, profile:3, goals:4, stats:4, success:5
 }
 
 /**
@@ -250,6 +254,43 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
     go('password')
   }
 
+  /** After any successful sign-in: activate the session, redeem a pending trainer invite, open the app. */
+  const finishLogin = async (sessionId: string | null) => {
+    await setActive({ session: sessionId })
+    if (invite && inviteTrainer) {
+      const joined = await redeemInvite(invite)
+      // On failure the join page explains why (expired, already used, …).
+      router.push(joined.ok ? '/dashboard' : `/join/${invite}`)
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
+  // Clerk's second step: the factor in use and where the code went (masked email/phone).
+  const [second, setSecond] = useState<{ strategy: SecondStrategy; available: SecondStrategy[]; sentTo?: string } | null>(null)
+
+  type Factor = { strategy: string; emailAddressId?: string; phoneNumberId?: string; safeIdentifier?: string }
+
+  /** Sends the code for email/phone factors. (This Clerk SDK version doesn't type email_code yet, hence the casts.) */
+  const prepareSecond = async (strategy: SecondStrategy) => {
+    const signInRes = clerk.client?.signIn ?? signIn
+    if (!signInRes) return
+    const factor = (signInRes.supportedSecondFactors as Factor[] | null)?.find(f => f.strategy === strategy)
+    if (strategy === 'email_code') {
+      await signInRes.prepareSecondFactor({ strategy: 'email_code', emailAddressId: factor?.emailAddressId } as never)
+    } else if (strategy === 'phone_code') {
+      await signInRes.prepareSecondFactor({ strategy: 'phone_code', phoneNumberId: factor?.phoneNumberId } as never)
+    }
+    return factor?.safeIdentifier
+  }
+
+  const startSecond = async (available: SecondStrategy[], strategy: SecondStrategy) => {
+    const sentTo = await prepareSecond(strategy)
+    setSecond({ strategy, available, sentTo })
+    setCode('')
+    go('second')
+  }
+
   const handleLogPassword = async () => {
     if (!signIn || !inLoaded) { setError('Trwa inicjalizacja — odśwież stronę'); return }
     setLoading(true)
@@ -262,22 +303,39 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
       }
 
       if (res.status === 'complete') {
-        await setActive({ session: res.createdSessionId })
-        if (invite && inviteTrainer) {
-          const joined = await redeemInvite(invite)
-          // On failure the join page explains why (expired, already used, …).
-          router.push(joined.ok ? '/dashboard' : `/join/${invite}`)
-        } else {
-          router.push('/dashboard')
-        }
-      } else if (res.status === 'needs_second_factor') {
-        setError('Wymagana weryfikacja dwuetapowa (2FA) — skonfiguruj ją w ustawieniach konta')
+        await finishLogin(res.createdSessionId)
+      // Device Trust (new device → code by email): this SDK gets it as needs_second_factor, newer ones as needs_client_trust.
+      } else if (res.status === 'needs_second_factor' || (res.status as string) === 'needs_client_trust') {
+        const offered = ((res.supportedSecondFactors ?? []) as Factor[]).map(f => f.strategy)
+        const available = SECOND_ORDER.filter(st => offered.includes(st))
+        if (!available.length) { setError(`Wymagany dodatkowy krok logowania (${offered.join(', ') || 'nieznany'}), którego aplikacja nie obsługuje.`); return }
+        await startSecond(available, available[0])
       } else {
         setError(`Nie można zakończyć logowania (status: ${res.status})`)
       }
     } catch (e: unknown) {
       setError(clerkErrorPl(e))
     } finally { setLoading(false) }
+  }
+
+  const handleSecond = async () => {
+    const signInRes = clerk.client?.signIn ?? signIn
+    if (!signInRes || !second) return
+    setLoading(true)
+    try {
+      const res = await signInRes.attemptSecondFactor({ strategy: second.strategy, code: code.replace(/\s/g, '') } as never)
+      if (res.status === 'complete') await finishLogin(res.createdSessionId)
+      else setError(`Nie można zakończyć logowania (status: ${res.status})`)
+    } catch (e: unknown) {
+      setError(clerkErrorPl(e))
+    } finally { setLoading(false) }
+  }
+
+  const resendSecond = async () => {
+    if (!second) return
+    setLoading(true)
+    setError('')
+    try { await prepareSecond(second.strategy) } catch (e: unknown) { setError(clerkErrorPl(e)) } finally { setLoading(false) }
   }
 
   const renderStep = () => {
@@ -358,6 +416,39 @@ export default function AuthFlow({ invite = null, expired = false }: { invite?: 
         <BtnBack onClick={()=>go('email')}/>
       </>
     )
+
+    if (step === 'second' && second) {
+      const label: Record<SecondStrategy, string> = {
+        email_code: 'Kod z maila', totp: 'Kod z aplikacji', phone_code: 'Kod z SMS-a', backup_code: 'Kod zapasowy',
+      }
+      const hint: Record<SecondStrategy, string> = {
+        email_code: `Logujesz się z nowego urządzenia. Wysłaliśmy 6-cyfrowy kod na ${second.sentTo ?? 'Twój email'} — sprawdź też spam.`,
+        totp: 'Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej.',
+        phone_code: `Wysłaliśmy kod SMS na ${second.sentTo ?? 'Twój numer'}.`,
+        backup_code: 'Wpisz jeden z kodów zapasowych.',
+      }
+      return (
+        <>
+          <Dots total={3} current={2}/>
+          <p className="text-[10px] font-mono uppercase tracking-[2.5px] text-neutral-600 mb-2">Krok 3 z 3</p>
+          <h2 className="font-display text-2xl font-black text-[#f0ece4] mb-1">Potwierdź <em className="not-italic text-[#c8f53a]">logowanie</em></h2>
+          <p className="text-[13px] text-neutral-600 mb-6">{hint[second.strategy]}</p>
+          <ErrMsg msg={error}/>
+          <Field label={label[second.strategy]} placeholder="123456" value={code} onChange={setCode} autoFocus/>
+          <BtnPrimary loading={loading} onClick={handleSecond}>Zaloguj →</BtnPrimary>
+          {(second.strategy === 'email_code' || second.strategy === 'phone_code') && (
+            <button onClick={resendSecond} disabled={loading} className="w-full mt-3 text-[11px] font-mono uppercase tracking-[1.3px] text-neutral-500 hover:text-[#c8f53a] cursor-pointer">Wyślij kod ponownie</button>
+          )}
+          {second.available.filter(st => st !== second.strategy).map(st => (
+            <button key={st} onClick={() => { setError(''); startSecond(second.available, st).catch(e => setError(clerkErrorPl(e))) }}
+              className="w-full mt-2 text-[11px] font-mono uppercase tracking-[1.3px] text-neutral-500 hover:text-[#c8f53a] cursor-pointer">
+              Użyj: {label[st].toLowerCase()}
+            </button>
+          ))}
+          <BtnBack onClick={()=>go('password')}/>
+        </>
+      )
+    }
 
     if (step === 'verify') return (
       <>
