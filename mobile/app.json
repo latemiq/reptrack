@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "RepTrack",
+    "slug": "reptrack",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "reptrack",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#080808",
+    "ios": {
+      "bundleIdentifier": "app.reptrack.mobile",
+      "icon": "./assets/images/icon.png"
+    },
+    "android": {
+      "package": "app.reptrack.mobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#080808",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#080808",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "RepTrack używa aparatu do zeskanowania kodu QR od trenera.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#c8f53a",
+          "enableRemoteNotifications": false
+        }
+      ],
+      "@clerk/expo",
+      "expo-secure-store",
+      "./plugins/with-short-cxx-dir"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
