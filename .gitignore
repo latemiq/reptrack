@@ -36,3 +36,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# logs
+*.log
+
+# local tooling
+.claude/
+mobile/.claude/
+
+# only npm is used (package-lock.json)
+bun.lock
+bun.lockb
+pnpm-lock.yaml
+pnpm-workspace.yaml
+yarn.lock
