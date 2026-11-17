@@ -1,6 +1,8 @@
 import { useClerk, useUser } from '@clerk/expo'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import Constants from 'expo-constants'
 import { router, useFocusEffect } from 'expo-router'
+import * as Updates from 'expo-updates'
 import { useCallback, useState } from 'react'
 import { Alert, Text, View } from 'react-native'
 import { Btn, Card, ErrorBox, Field, Kicker, Screen, Title } from '@/components/ui'
@@ -42,6 +44,13 @@ export default function Profile() {
     { text: 'Odłącz', style: 'destructive', onPress: async () => { await api(`/api/athlete/trainers/${t.relationId}`, { method: 'DELETE' }).catch(() => {}); load() } },
   ])
 
+  const { currentlyRunning } = Updates.useUpdates()
+  const version = `Wersja ${Constants.expoConfig?.version ?? '?'}${
+    currentlyRunning.isEmbeddedLaunch || !currentlyRunning.createdAt
+      ? ''
+      : ` · aktualizacja ${currentlyRunning.createdAt.toLocaleString('pl-PL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+  }`
+
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ')
 
   return (
@@ -75,6 +84,7 @@ export default function Profile() {
         { text: 'Nie', style: 'cancel' },
         { text: 'Wyloguj', style: 'destructive', onPress: () => signOut() },
       ])} />
+      <Text style={{ color: C.faint, fontSize: 11, textAlign: 'center', marginTop: 16 }}>{version}</Text>
     </Screen>
   )
 }

@@ -21,7 +21,11 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -51,11 +55,32 @@
       ],
       "@clerk/expo",
       "expo-secure-store",
-      "./plugins/with-short-cxx-dir"
+      "./plugins/with-short-cxx-dir",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "8b447449-7e6f-4de6-81f3-05901ac08975"
+      }
+    },
+    "owner": "latemiq",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8b447449-7e6f-4de6-81f3-05901ac08975",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     }
   }
 }
