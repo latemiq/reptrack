@@ -68,6 +68,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nieprawidłowa lista ćwiczeń' }, { status: 400 })
   }
 
+  // A workout with no completed set isn't a workout — it would only inflate the weekly count.
+  if (!workout.exercises.some(ex => ex.sets.some(s => s.done))) {
+    return NextResponse.json({ error: 'Pusty trening — zalicz przynajmniej jedną serię, żeby go zapisać' }, { status: 400 })
+  }
+
   const durationSeconds = Math.floor((finishedAt - workout.startedAt) / 1000)
 
   const tonnage = workout.exercises.reduce((sum, ex) =>

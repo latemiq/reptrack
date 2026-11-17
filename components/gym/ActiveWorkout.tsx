@@ -96,7 +96,7 @@ function ExerciseCard({ ex, index, total, label, expanded, onExpand, onOpen }: {
   /** Opens another exercise (the next one of a superset). */
   onOpen: (id: string) => void
 }) {
-  const { updateSet, completeSet, addSet, removeSet, removeExercise, reorderExercise } = useWorkoutStore()
+  const { updateSet, completeSet, addSet, removeSet, removeExercise, reorderExercise, toggleSuperset } = useWorkoutStore()
   const [menu, setMenu] = useState(false)
   const doneCount = ex.sets.filter(s => s.done).length
   const done = isDone(ex)
@@ -143,9 +143,14 @@ function ExerciseCard({ ex, index, total, label, expanded, onExpand, onOpen }: {
         <div className="relative">
           <button onClick={() => setMenu(m => !m)} aria-label="Opcje ćwiczenia" className="w-8 h-8 rounded-lg text-[#777] hover:text-[#f0ece4] cursor-pointer">⋯</button>
           {menu && (
-            <div className="absolute right-0 top-9 z-20 w-44 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] py-1 shadow-xl" onMouseLeave={() => setMenu(false)}>
+            <div className="absolute right-0 top-9 z-20 w-60 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] py-1 shadow-xl" onMouseLeave={() => setMenu(false)}>
               {index > 0 && <button onClick={() => { reorderExercise(ex.id, 'up'); setMenu(false) }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/[0.05] cursor-pointer">Przesuń wyżej</button>}
               {index < total - 1 && <button onClick={() => { reorderExercise(ex.id, 'down'); setMenu(false) }} className="w-full text-left px-3 py-2 text-[13px] hover:bg-white/[0.05] cursor-pointer">Przesuń niżej</button>}
+              {index > 0 && (
+                <button onClick={() => { toggleSuperset(ex.id); setMenu(false) }} className="w-full text-left px-3 py-2 text-[13px] text-[#f5a03a] hover:bg-white/[0.05] cursor-pointer">
+                  {ex.superset ? 'Rozłącz superserię' : 'Superseria z ćwiczeniem wyżej'}
+                </button>
+              )}
               <button onClick={() => { if (confirm(`Usunąć „${ex.name}” z treningu?`)) removeExercise(ex.id) }} className="w-full text-left px-3 py-2 text-[13px] text-red-400 hover:bg-white/[0.05] cursor-pointer">Usuń ćwiczenie</button>
             </div>
           )}
@@ -260,6 +265,13 @@ export default function ActiveWorkout() {
   }
 
   const finish = async () => {
+    if (progress.done === 0) {
+      // Nothing logged: don't create an empty workout in the history.
+      if (!confirm('Nie zaliczyłeś żadnej serii, więc trening nie zostanie zapisany. Odrzucić go?')) return
+      cancelWorkout()
+      router.push('/gym')
+      return
+    }
     const left = progress.total - progress.done
     if (left > 0 && !confirm(`Zostało ${left} niezaliczonych serii. Zakończyć trening? Zapiszą się tylko zaliczone serie.`)) return
     setSaving(true)

@@ -44,6 +44,7 @@ export interface TemplateExercise {
   targetRepsMax?: number | null
   targetWeight: number | null
   restSeconds: number
+  superset?: boolean
 }
 
 export interface WorkoutTemplate {
@@ -107,6 +108,22 @@ export function supersetNext<T extends { superset?: boolean }>(list: T[], idx: n
   for (let j = idx + 1; j <= end; j++) if (hasSetsLeft(list[j])) return { next: j, rest: false }
   for (let j = start; j <= idx; j++) if (hasSetsLeft(list[j])) return { next: j, rest: true }
   return { next: null, rest: true }
+}
+
+/** Removes an exercise; if it started a superset, the rest of that group isn't glued onto the exercise above. */
+export function removeKeepingSupersets<T extends { superset?: boolean }>(list: T[], idx: number): T[] {
+  const out = list.filter((_, j) => j !== idx)
+  if (!list[idx]?.superset && out[idx]?.superset) out[idx] = { ...out[idx], superset: false }
+  return out
+}
+
+/** Moves an exercise; it leaves its superset and lands standalone (link it again where it belongs). */
+export function moveKeepingSupersets<T extends { superset?: boolean }>(list: T[], from: number, to: number): T[] {
+  if (from === to || to < 0 || to >= list.length) return list
+  const out = removeKeepingSupersets(list, from)
+  out.splice(to, 0, { ...list[from], superset: false })
+  if (out[to + 1]?.superset) out[to + 1] = { ...out[to + 1], superset: false }
+  return out
 }
 
 export function formatPrescription(e: PlannedExercise): string {
@@ -188,3 +205,10 @@ export const POPULAR: { id: string; name: string; muscle: string }[] = [
   { id: 'calf', name: 'Wspięcia na palce', muscle: 'Nogi' },
   { id: 'plank', name: 'Deska (plank)', muscle: 'Brzuch' },
 ]
+
+/** Polish plural of "trening" for a count: 1 trening, 2–4 treningi, 5+ treningów (12–14 treningów). */
+export function treningLabel(n: number): string {
+  if (n === 1) return 'trening'
+  const d = n % 10, t = n % 100
+  return d >= 2 && d <= 4 && (t < 12 || t > 14) ? 'treningi' : 'treningów'
+}

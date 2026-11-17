@@ -7,6 +7,8 @@ export interface TemplateExercise {
   targetRepsMax?: number | null
   targetWeight: number | null
   restSeconds: number
+  /** Superset with the previous exercise. */
+  superset?: boolean
 }
 
 export interface WorkoutTemplate {
@@ -75,6 +77,7 @@ export function sanitizeTemplateExercises(input: unknown): TemplateExercise[] | 
       targetRepsMax: r.targetRepsMax != null && r.targetRepsMax !== '' ? Math.max(clampInt(r.targetRepsMax, 1, 100, 8), clampInt(r.targetReps, 1, 100, 8)) : null,
       targetWeight: r.targetWeight != null && r.targetWeight !== '' && Number.isFinite(weight) && weight > 0 ? weight : null,
       restSeconds:  clampInt(r.restSeconds, 0, 900, 120),
+      superset:     out.length > 0 && r.superset === true,
     })
   }
   return out

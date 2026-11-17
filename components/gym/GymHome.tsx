@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useWorkoutStore } from '@/lib/stores/useWorkoutStore'
 import { startWorkoutWithHistory } from '@/lib/start-workout'
 import { relativeDay } from '@/lib/stats'
-import { fmtKg, fmtTonnes, type PrEvent } from '@/lib/gym-stats'
+import { fmtKg, fmtTonnes, treningLabel, type PrEvent } from '@/lib/gym-stats'
 import { formatPrescription, type PlannedExercise } from '@/lib/plans'
 import type { WorkoutTemplate } from '@/lib/templates'
 import GymTabs from '@/components/gym/GymTabs'
@@ -101,7 +101,7 @@ export default function GymHome() {
               <div className="font-display text-[22px] font-black text-[#c8f53a] leading-none">
                 {week ? `${week.done}${week.goal ? `/${week.goal}` : ''}` : '–'}
               </div>
-              <div className="text-[11px] font-mono text-[#666] uppercase tracking-[1px]">treningi</div>
+              <div className="text-[11px] font-mono text-[#666] uppercase tracking-[1px]">{treningLabel(overview?.week.goal ?? overview?.week.done ?? 0)}</div>
             </div>
           </div>
           <div className="grid grid-cols-7 gap-1.5">

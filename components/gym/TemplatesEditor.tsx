@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { TemplateExercise, WorkoutTemplate } from '@/lib/templates'
 import { relativeDay } from '@/lib/stats'
 import { fmtKg } from '@/lib/gym-stats'
+import { moveKeepingSupersets, removeKeepingSupersets, supersetLabels } from '@/lib/plans'
 import ExercisePicker from '@/components/gym/ExercisePicker'
 import GymTabs from '@/components/gym/GymTabs'
 
@@ -67,13 +68,7 @@ export default function TemplatesEditor() {
   const patchEx = (idx: number, p: Partial<TemplateExercise>) =>
     setDraft(d => d && { ...d, exercises: d.exercises.map((e, i) => (i === idx ? { ...e, ...p } : e)) })
 
-  const move = (from: number, to: number) => setDraft(d => {
-    if (!d || to < 0 || to >= d.exercises.length || from === to) return d
-    const arr = [...d.exercises]
-    const [item] = arr.splice(from, 1)
-    arr.splice(to, 0, item)
-    return { ...d, exercises: arr }
-  })
+  const move = (from: number, to: number) => setDraft(d => d && { ...d, exercises: moveKeepingSupersets(d.exercises, from, to) })
 
   const save = async () => {
     if (!draft) return
@@ -103,6 +98,7 @@ export default function TemplatesEditor() {
   // ── Editor ──
   if (draft) {
     const totalSets = draft.exercises.reduce((s, e) => s + e.targetSets, 0)
+    const labels = supersetLabels(draft.exercises)
     return (
       <div className="min-h-full bg-[#080808] text-[#f0ece4]">
         <div className="max-w-2xl mx-auto px-4 md:px-7 pt-4 md:pt-6 pb-8 space-y-3">
@@ -123,24 +119,37 @@ export default function TemplatesEditor() {
 
           {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
 
-          <div className="space-y-2">
+          <div>
             {draft.exercises.map((ex, i) => {
               const open = openIdx === i
               return (
-                <div key={`${ex.exerciseId}-${i}`}
+                <Fragment key={`${ex.exerciseId}-${i}`}>
+                {i > 0 && (
+                  <div className="flex justify-center h-7 items-center">
+                    <button onClick={() => patchEx(i, { superset: !ex.superset })}
+                      title={ex.superset ? 'Rozłącz superserię' : 'Połącz z ćwiczeniem wyżej w superserię'}
+                      className={`px-2.5 py-0.5 rounded-md text-[11px] border cursor-pointer transition-colors ${
+                        ex.superset ? 'bg-[#f5a03a]/10 border-[#f5a03a]/40 text-[#f5a03a]' : 'border-transparent text-[#444] hover:text-[#f5a03a] hover:border-[#f5a03a]/30'
+                      }`}>
+                      {ex.superset ? '⛓ superseria · rozłącz' : '+ superseria'}
+                    </button>
+                  </div>
+                )}
+                <div
                   draggable onDragStart={() => setDragIdx(i)} onDragEnd={() => setDragIdx(null)}
                   onDragOver={e => { e.preventDefault(); if (dragIdx != null && dragIdx !== i) { move(dragIdx, i); setDragIdx(i) } }}
-                  className={`rounded-2xl bg-[#111] border p-3 transition-colors ${open ? 'border-[#c8f53a]/25' : 'border-[#1e1e1e]'} ${dragIdx === i ? 'opacity-50' : ''}`}>
+                  className={`rounded-2xl bg-[#111] border p-3 transition-colors ${open ? 'border-[#c8f53a]/25' : labels[i] ? 'border-[#f5a03a]/25' : 'border-[#1e1e1e]'} ${dragIdx === i ? 'opacity-50' : ''}`}>
                   <div className="flex items-center gap-2">
                     <span className="cursor-grab text-[#555] select-none px-1" aria-hidden="true">⠿</span>
                     <button onClick={() => setOpenIdx(open ? null : i)} className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer">
+                      {labels[i] && <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#f5a03a]/15 text-[#f5a03a] text-[11px] font-mono">{labels[i]}</span>}
                       <span className="flex-1 min-w-0 truncate text-[14px]">{ex.name}</span>
                       {!open && <span className="text-[12px] text-[#777]">{ex.targetSets}×{repsLabel(ex)}{ex.targetWeight ? ` · ${fmtKg(ex.targetWeight)} kg` : ''}</span>}
                     </button>
                     <div className="flex">
                       <button onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Wyżej" className="w-7 h-7 text-[#555] hover:text-[#f0ece4] disabled:opacity-20 cursor-pointer">↑</button>
                       <button onClick={() => move(i, i + 1)} disabled={i === draft.exercises.length - 1} aria-label="Niżej" className="w-7 h-7 text-[#555] hover:text-[#f0ece4] disabled:opacity-20 cursor-pointer">↓</button>
-                      <button onClick={() => setDraft({ ...draft, exercises: draft.exercises.filter((_, j) => j !== i) })} aria-label={`Usuń ${ex.name}`}
+                      <button onClick={() => setDraft({ ...draft, exercises: removeKeepingSupersets(draft.exercises, i) })} aria-label={`Usuń ${ex.name}`}
                         className="w-7 h-7 text-[#555] hover:text-red-400 cursor-pointer">×</button>
                     </div>
                   </div>
@@ -172,6 +181,7 @@ export default function TemplatesEditor() {
                     </div>
                   )}
                 </div>
+                </Fragment>
               )
             })}
           </div>

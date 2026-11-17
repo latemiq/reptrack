@@ -46,10 +46,10 @@ function SupersetBadge({ label }: { label: string | null }) {
   return <Text style={st.badge}>{label}</Text>
 }
 
-function ExerciseCard({ ex, label, expanded, onExpand, onSetDone }: {
-  ex: ExerciseEntry; label: string | null; expanded: boolean; onExpand: () => void; onSetDone: (ex: ExerciseEntry) => void
+function ExerciseCard({ ex, index, label, expanded, onExpand, onSetDone }: {
+  ex: ExerciseEntry; index: number; label: string | null; expanded: boolean; onExpand: () => void; onSetDone: (ex: ExerciseEntry) => void
 }) {
-  const { updateSet, addSet, removeLastSet, removeExercise } = useWorkout()
+  const { updateSet, addSet, removeLastSet, removeExercise, toggleSuperset } = useWorkout()
   const doneCount = ex.sets.filter(s => s.done).length
   const done = isDone(ex)
 
@@ -86,8 +86,9 @@ function ExerciseCard({ ex, label, expanded, onExpand, onSetDone }: {
           </Text>
         </View>
         <Pressable hitSlop={10} onPress={() => Alert.alert(ex.name, undefined, [
-          { text: 'Usuń ćwiczenie', style: 'destructive', onPress: () => removeExercise(ex.id) },
-          { text: 'Anuluj', style: 'cancel' },
+          ...(index > 0 ? [{ text: ex.superset ? 'Rozłącz superserię' : 'Superseria z ćwiczeniem wyżej', onPress: () => toggleSuperset(ex.id) }] : []),
+          { text: 'Usuń ćwiczenie', style: 'destructive' as const, onPress: () => removeExercise(ex.id) },
+          { text: 'Anuluj', style: 'cancel' as const },
         ])}>
           <Ionicons name="ellipsis-horizontal" size={20} color={C.muted} />
         </Pressable>
@@ -286,7 +287,17 @@ export default function WorkoutScreen() {
     }
   }
 
+  const discard = () => { cancelRestEnd(rest?.notificationId); finish(); router.back() }
+
   const askFinish = () => {
+    if (p.done === 0) {
+      // Nothing logged: don't create an empty workout in the history.
+      Alert.alert('Pusty trening', 'Nie zaliczyłeś żadnej serii, więc trening nie zostanie zapisany.', [
+        { text: 'Wróć', style: 'cancel' },
+        { text: 'Odrzuć trening', style: 'destructive', onPress: discard },
+      ])
+      return
+    }
     const left = p.total - p.done
     if (left === 0) { save(); return }
     Alert.alert('Zakończyć trening?', `Zostało ${left} niezaliczonych serii. Zapiszą się tylko zaliczone.`, [
@@ -297,7 +308,7 @@ export default function WorkoutScreen() {
 
   const askCancel = () => Alert.alert('Anulować trening?', 'Zalogowane serie zostaną utracone.', [
     { text: 'Nie', style: 'cancel' },
-    { text: 'Anuluj trening', style: 'destructive', onPress: () => { cancelRestEnd(rest?.notificationId); finish(); router.back() } },
+    { text: 'Anuluj trening', style: 'destructive', onPress: discard },
   ])
 
   return (
@@ -325,7 +336,7 @@ export default function WorkoutScreen() {
             <Text style={{ color: C.muted, textAlign: 'center', paddingVertical: 24 }}>Pusty trening — dodaj pierwsze ćwiczenie.</Text>
           )}
           {workout.exercises.map((ex, i) => (
-            <ExerciseCard key={ex.id} ex={ex} label={labels[i]} expanded={ex.id === expanded} onExpand={() => setOpenId(ex.id)} onSetDone={onSetDone} />
+            <ExerciseCard key={ex.id} ex={ex} index={i} label={labels[i]} expanded={ex.id === expanded} onExpand={() => setOpenId(ex.id)} onSetDone={onSetDone} />
           ))}
           {picking
             ? <AddExercise onPick={pick} onCancel={() => setPicking(false)} />

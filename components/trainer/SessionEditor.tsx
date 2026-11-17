@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from 'react'
 import ExercisePicker from '@/components/gym/ExercisePicker'
-import { DAY_LABELS, supersetLabels, type PlannedExercise, type PlannedSession } from '@/lib/plans'
+import { DAY_LABELS, moveKeepingSupersets, removeKeepingSupersets, supersetLabels, type PlannedExercise, type PlannedSession } from '@/lib/plans'
 
 interface Props {
   session: PlannedSession
@@ -24,20 +24,8 @@ export default function SessionEditor({ session, weekLabel, remainingWeeks, onCh
   const patch = (p: Partial<PlannedSession>) => onChange({ ...session, ...p })
   const patchEx = (idx: number, p: Partial<PlannedExercise>) =>
     patch({ exercises: session.exercises.map((e, i) => (i === idx ? { ...e, ...p } : e)) })
-  const moveEx = (idx: number, dir: -1 | 1) => {
-    const j = idx + dir
-    if (j < 0 || j >= session.exercises.length) return
-    const arr = [...session.exercises]
-    ;[arr[idx], arr[j]] = [arr[j], arr[idx]]
-    patch({ exercises: arr })
-  }
-
-  // Removing the first exercise of a superset must not glue the rest onto the exercise above.
-  const removeEx = (idx: number) => patch({
-    exercises: session.exercises
-      .map((e, j) => (j === idx + 1 && !session.exercises[idx].superset ? { ...e, superset: false } : e))
-      .filter((_, j) => j !== idx),
-  })
+  const moveEx = (idx: number, dir: -1 | 1) => patch({ exercises: moveKeepingSupersets(session.exercises, idx, idx + dir) })
+  const removeEx = (idx: number) => patch({ exercises: removeKeepingSupersets(session.exercises, idx) })
   const labels = supersetLabels(session.exercises)
 
   const field = 'bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-[12px] text-[#f0ece4] placeholder:text-[#333] focus:outline-none focus:border-[#c8f53a]/40'

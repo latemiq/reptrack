@@ -5,7 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Btn, Card, ErrorBox, Kicker, Loading } from '@/components/ui'
 import { useApi } from '@/lib/api'
-import { fmtKg, fmtTonnes, formatPrescription, relativeDay, type GymOverview, type PlannedExercise, type WorkoutTemplate } from '@/lib/gym'
+import { fmtKg, fmtTonnes, formatPrescription, relativeDay, treningLabel, type GymOverview, type PlannedExercise, type WorkoutTemplate } from '@/lib/gym'
 import { useStartWorkout } from '@/lib/start'
 import { C, R } from '@/lib/theme'
 import { useWorkout } from '@/lib/workout-store'
@@ -99,7 +99,7 @@ export default function GymHome() {
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={s.counter}>{week ? `${week.done}${week.goal ? `/${week.goal}` : ''}` : '–'}</Text>
-            <Kicker>treningi</Kicker>
+            <Kicker>{treningLabel(week?.goal ?? week?.done ?? 0)}</Kicker>
           </View>
         </View>
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { supersetNext } from '@/lib/plans'
+import { moveKeepingSupersets, removeKeepingSupersets, supersetNext } from '@/lib/plans'
 
 // ─── TYPY ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +62,8 @@ interface WorkoutStore {
   addExercise: (exercise: Omit<ExerciseEntry, 'sets'>) => void
   removeExercise: (exerciseId: string) => void
   reorderExercise: (exerciseId: string, direction: 'up' | 'down') => void
+  /** Joins the exercise with the one above into a superset, or splits it off. */
+  toggleSuperset: (exerciseId: string) => void
 
   addSet: (exerciseId: string) => void
   updateSet: (exerciseId: string, setId: string, patch: Partial<SetEntry>) => void
@@ -136,7 +138,7 @@ export const useWorkoutStore = create<WorkoutStore>()(
       removeExercise: (exerciseId) => {
         const w = get().activeWorkout
         if (!w) return
-        set({ activeWorkout: { ...w, exercises: w.exercises.filter(e => e.id !== exerciseId) } })
+        set({ activeWorkout: { ...w, exercises: removeKeepingSupersets(w.exercises, w.exercises.findIndex(e => e.id === exerciseId)) } })
       },
 
       reorderExercise: (exerciseId, direction) => {
@@ -144,11 +146,13 @@ export const useWorkoutStore = create<WorkoutStore>()(
         if (!w) return
         const idx = w.exercises.findIndex(e => e.id === exerciseId)
         if (idx === -1) return
-        const newIdx = direction === 'up' ? idx - 1 : idx + 1
-        if (newIdx < 0 || newIdx >= w.exercises.length) return
-        const arr = [...w.exercises]
-        ;[arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]]
-        set({ activeWorkout: { ...w, exercises: arr } })
+        set({ activeWorkout: { ...w, exercises: moveKeepingSupersets(w.exercises, idx, direction === 'up' ? idx - 1 : idx + 1) } })
+      },
+
+      toggleSuperset: (exerciseId) => {
+        const w = get().activeWorkout
+        if (!w) return
+        set({ activeWorkout: { ...w, exercises: w.exercises.map((e, i) => (e.id === exerciseId && i > 0 ? { ...e, superset: !e.superset } : e)) } })
       },
 
       addSet: (exerciseId) => {

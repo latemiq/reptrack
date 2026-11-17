@@ -184,6 +184,22 @@ export function supersetNext<T extends { superset?: boolean }>(list: T[], idx: n
   return { next: null, rest: true }
 }
 
+/** Removes an exercise; if it started a superset, the rest of that group isn't glued onto the exercise above. */
+export function removeKeepingSupersets<T extends { superset?: boolean }>(list: T[], idx: number): T[] {
+  const out = list.filter((_, j) => j !== idx)
+  if (!list[idx]?.superset && out[idx]?.superset) out[idx] = { ...out[idx], superset: false }
+  return out
+}
+
+/** Moves an exercise; it leaves its superset and lands standalone (link it again where it belongs). */
+export function moveKeepingSupersets<T extends { superset?: boolean }>(list: T[], from: number, to: number): T[] {
+  if (from === to || to < 0 || to >= list.length) return list
+  const out = removeKeepingSupersets(list, from)
+  out.splice(to, 0, { ...list[from], superset: false })
+  if (out[to + 1]?.superset) out[to + 1] = { ...out[to + 1], superset: false }
+  return out
+}
+
 /** One-line prescription, e.g. "4×6–8 · 80 kg · @8". */
 export function formatPrescription(e: PlannedExercise): string {
   const parts = [`${e.sets}×${formatReps(e)}`]

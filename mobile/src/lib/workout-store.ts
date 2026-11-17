@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
+import { removeKeepingSupersets } from '@/lib/gym'
 
 // The live workout lives on the phone until it's finished and sent to the server,
 // so closing the app or losing signal mid-session never loses logged sets.
@@ -68,6 +69,8 @@ interface Store {
   finish: () => void
   addExercise: (ex: Omit<ExerciseEntry, 'id' | 'sets'>) => string
   removeExercise: (id: string) => void
+  /** Joins the exercise with the one above into a superset, or splits it off. */
+  toggleSuperset: (id: string) => void
   updateSet: (exId: string, setId: string, patch: Partial<SetEntry>) => void
   addSet: (exId: string) => void
   removeLastSet: (exId: string) => void
@@ -97,7 +100,12 @@ export const useWorkout = create<Store>()(persist((set, get) => ({
 
   removeExercise: id => {
     const w = get().workout
-    if (w) set({ workout: { ...w, exercises: w.exercises.filter(e => e.id !== id) } })
+    if (w) set({ workout: { ...w, exercises: removeKeepingSupersets(w.exercises, w.exercises.findIndex(e => e.id === id)) } })
+  },
+
+  toggleSuperset: id => {
+    const w = get().workout
+    if (w) set({ workout: { ...w, exercises: w.exercises.map((e, i) => (e.id === id && i > 0 ? { ...e, superset: !e.superset } : e)) } })
   },
 
   updateSet: (exId, setId, patch) => {

@@ -97,3 +97,10 @@ export function setsSummary(sets: StatSet[]): string {
 
 export const fmtKg = (kg: number) => (Number.isInteger(kg) ? String(kg) : kg.toFixed(1).replace('.', ','))
 export const fmtTonnes = (kg: number) => `${(kg / 1000).toFixed(1).replace('.', ',')} t`
+
+/** Polish plural of "trening" for a count: 1 trening, 2–4 treningi, 5+ treningów (12–14 treningów). */
+export function treningLabel(n: number): string {
+  if (n === 1) return 'trening'
+  const d = n % 10, t = n % 100
+  return d >= 2 && d <= 4 && (t < 12 || t > 14) ? 'treningi' : 'treningów'
+}
