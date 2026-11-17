@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { supersetNext } from '@/lib/plans'
 
 // ─── TYPY ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,8 @@ export interface ExerciseEntry {
   targetRepsMax?: number | null
   /** Trainer prescription to show above the sets, e.g. "4×6–8 @ RPE 8". */
   plan?: string
+  /** Superset with the previous exercise (from the trainer's plan). */
+  superset?: boolean
   /** Sets from the last time this exercise was done ("Poprzednio" column). */
   previous?: { weightKg: number | null; reps: number | null }[]
   sets: SetEntry[]
@@ -62,7 +65,8 @@ interface WorkoutStore {
 
   addSet: (exerciseId: string) => void
   updateSet: (exerciseId: string, setId: string, patch: Partial<SetEntry>) => void
-  completeSet: (exerciseId: string, setId: string) => void
+  /** Marks the set done and starts the rest timer; returns the superset partner to open next, if any. */
+  completeSet: (exerciseId: string, setId: string) => string | null
   removeSet: (exerciseId: string, setId: string) => void
 
   startRestTimer: (seconds: number, exerciseId: string) => void
@@ -189,9 +193,12 @@ export const useWorkoutStore = create<WorkoutStore>()(
 
       completeSet: (exerciseId, setId) => {
         const exercise = get().activeWorkout?.exercises.find(e => e.id === exerciseId)
-        if (!exercise) return
+        if (!exercise) return null
         get().updateSet(exerciseId, setId, { done: true, completedAt: Date.now() })
-        if (exercise.restSeconds > 0) get().startRestTimer(exercise.restSeconds, exerciseId)
+        const list = get().activeWorkout?.exercises ?? []
+        const { next, rest } = supersetNext(list, list.findIndex(e => e.id === exerciseId), e => e.sets.some(s => !s.done))
+        if (rest && exercise.restSeconds > 0) get().startRestTimer(exercise.restSeconds, exerciseId)
+        return next == null ? null : list[next].id
       },
 
       removeSet: (exerciseId, setId) => {

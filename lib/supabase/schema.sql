@@ -362,8 +362,12 @@ create table if not exists planned_exercises (
   percent_1rm decimal,
   rpe decimal,
   rest_seconds int,
-  notes text
+  notes text,
+  -- true = superseria z poprzednim ćwiczeniem (robione na zmianę, przerwa dopiero po ostatnim z grupy)
+  superset boolean not null default false
 );
+
+alter table planned_exercises add column if not exists superset boolean not null default false;
 
 create index if not exists planned_exercises_session_idx on planned_exercises (session_id, position);
 
@@ -381,7 +385,7 @@ create policy "Trainer and client can view macrocycles" on macrocycles
 --      mesocycles: [{ id, name, focus, notes,
 --        microcycles: [{ id, notes,
 --          sessions: [{ id, dayOfWeek, name, notes,
---            exercises: [{ exerciseId, name, sets, repsMin, repsMax, weightKg, percent1rm, rpe, restSeconds, notes }] }] }] }] }
+--            exercises: [{ exerciseId, name, sets, repsMin, repsMax, weightKg, percent1rm, rpe, restSeconds, notes, superset }] }] }] }] }
 -- Pozycje wynikają z kolejności w tablicach. Uprawnienia sprawdza API;
 -- funkcja dodatkowo odmawia nadpisania planu innego trenera/podopiecznego.
 create or replace function save_macrocycle(p jsonb) returns uuid
@@ -422,11 +426,12 @@ begin
                 s.v->>'name', nullif(s.v->>'notes', ''));
 
         insert into planned_exercises (session_id, position, exercise_id, exercise_name, sets, reps_min, reps_max,
-                                       weight_kg, percent_1rm, rpe, rest_seconds, notes)
+                                       weight_kg, percent_1rm, rpe, rest_seconds, notes, superset)
         select (s.v->>'id')::uuid, e.ordinality, e.value->>'exerciseId', e.value->>'name',
                (e.value->>'sets')::int, (e.value->>'repsMin')::int, (e.value->>'repsMax')::int,
                (e.value->>'weightKg')::decimal, (e.value->>'percent1rm')::decimal, (e.value->>'rpe')::decimal,
-               (e.value->>'restSeconds')::int, nullif(e.value->>'notes', '')
+               (e.value->>'restSeconds')::int, nullif(e.value->>'notes', ''),
+               coalesce((e.value->>'superset')::boolean, false)
         from jsonb_array_elements(coalesce(s.v->'exercises', '[]')) with ordinality e;
       end loop;
     end loop;

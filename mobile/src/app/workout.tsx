@@ -7,7 +7,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Btn, ErrorBox } from '@/components/ui'
 import { useApi } from '@/lib/api'
-import { fmtKg, fmtTonnes, POPULAR } from '@/lib/gym'
+import { fmtKg, fmtTonnes, POPULAR, supersetLabels, supersetNext } from '@/lib/gym'
 import { cancelRestEnd, scheduleRestEnd } from '@/lib/rest-alert'
 import { usePrevious } from '@/lib/start'
 import { C, R } from '@/lib/theme'
@@ -41,8 +41,13 @@ function NumField({ value, onChange, done, placeholder, integer }: {
   )
 }
 
-function ExerciseCard({ ex, expanded, onExpand, onSetDone }: {
-  ex: ExerciseEntry; expanded: boolean; onExpand: () => void; onSetDone: (ex: ExerciseEntry) => void
+function SupersetBadge({ label }: { label: string | null }) {
+  if (!label) return null
+  return <Text style={st.badge}>{label}</Text>
+}
+
+function ExerciseCard({ ex, label, expanded, onExpand, onSetDone }: {
+  ex: ExerciseEntry; label: string | null; expanded: boolean; onExpand: () => void; onSetDone: (ex: ExerciseEntry) => void
 }) {
   const { updateSet, addSet, removeLastSet, removeExercise } = useWorkout()
   const doneCount = ex.sets.filter(s => s.done).length
@@ -50,7 +55,8 @@ function ExerciseCard({ ex, expanded, onExpand, onSetDone }: {
 
   if (!expanded) {
     return (
-      <Pressable onPress={onExpand} style={st.collapsed}>
+      <Pressable onPress={onExpand} style={[st.collapsed, !!label && { borderColor: 'rgba(245,160,58,0.25)' }]}>
+        <SupersetBadge label={label} />
         <Text style={[st.collapsedName, done && { color: C.muted }]} numberOfLines={1}>{ex.name}</Text>
         <Text style={{ color: done ? C.lime : C.muted, fontFamily: 'monospace', fontSize: 12 }}>{doneCount}/{ex.sets.length}</Text>
         {done && <Ionicons name="checkmark" size={16} color={C.lime} />}
@@ -69,7 +75,11 @@ function ExerciseCard({ ex, expanded, onExpand, onSetDone }: {
     <View style={st.card}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Text style={st.exName}>{ex.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <SupersetBadge label={label} />
+            <Text style={[st.exName, { flex: 1 }]}>{ex.name}</Text>
+          </View>
+          {!!label && <Text style={{ color: C.orange, fontSize: 12, marginTop: 2 }}>Superseria — serie na zmianę, przerwa po ostatnim ćwiczeniu</Text>}
           <Text style={st.exPlan}>
             {ex.plan ? `Plan: ${ex.plan}` : `Cel: ${ex.targetSets}×${ex.targetRepsMax && ex.targetRepsMax !== ex.targetReps ? `${ex.targetReps}–${ex.targetRepsMax}` : ex.targetReps}${ex.targetWeight ? ` @ ${fmtKg(ex.targetWeight)} kg` : ''}`}
             {ex.restSeconds ? ` · przerwa ${fmtTime(ex.restSeconds)}` : ''}
@@ -238,8 +248,14 @@ export default function WorkoutScreen() {
   const firstOpen = workout.exercises.find(e => !isDone(e))?.id ?? null
   const expanded = openId && workout.exercises.some(e => e.id === openId) ? openId : firstOpen
 
+  const labels = supersetLabels(workout.exercises)
+
   const onSetDone = async (ex: ExerciseEntry) => {
-    if (!ex.restSeconds) return
+    // In a superset jump to the partner exercise; rest only after the last one of the group.
+    const list = useWorkout.getState().workout?.exercises ?? []
+    const { next, rest: shouldRest } = supersetNext(list, list.findIndex(e => e.id === ex.id), e => e.sets.some(s => !s.done))
+    if (next != null) setOpenId(list[next].id)
+    if (!shouldRest || !ex.restSeconds) return
     cancelRestEnd(rest?.notificationId)
     const notificationId = await scheduleRestEnd(ex.restSeconds, ex.name)
     setRest({ endsAt: Date.now() + ex.restSeconds * 1000, total: ex.restSeconds, notificationId })
@@ -308,8 +324,8 @@ export default function WorkoutScreen() {
           {workout.exercises.length === 0 && !picking && (
             <Text style={{ color: C.muted, textAlign: 'center', paddingVertical: 24 }}>Pusty trening — dodaj pierwsze ćwiczenie.</Text>
           )}
-          {workout.exercises.map(ex => (
-            <ExerciseCard key={ex.id} ex={ex} expanded={ex.id === expanded} onExpand={() => setOpenId(ex.id)} onSetDone={onSetDone} />
+          {workout.exercises.map((ex, i) => (
+            <ExerciseCard key={ex.id} ex={ex} label={labels[i]} expanded={ex.id === expanded} onExpand={() => setOpenId(ex.id)} onSetDone={onSetDone} />
           ))}
           {picking
             ? <AddExercise onPick={pick} onCancel={() => setPicking(false)} />
@@ -335,6 +351,7 @@ const st = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: C.lime },
   card: { backgroundColor: C.card, borderColor: C.limeLine, borderWidth: 1, borderRadius: R.lg, padding: 12 },
   collapsed: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderColor: C.cardBorder, borderWidth: 1, borderRadius: R.lg, paddingHorizontal: 14, paddingVertical: 14 },
+  badge: { color: C.orange, backgroundColor: 'rgba(245,160,58,0.15)', fontFamily: 'monospace', fontSize: 12, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, overflow: 'hidden' },
   collapsedName: { color: C.text, fontSize: 15, flex: 1 },
   exName: { color: C.lime, fontSize: 16, fontWeight: '700' },
   exPlan: { color: C.muted, fontSize: 12, marginTop: 2 },

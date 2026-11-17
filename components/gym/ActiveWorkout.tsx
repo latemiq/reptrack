@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useWorkoutStore, selectProgress, selectTotalTonnage, type ExerciseEntry, type SetEntry } from '@/lib/stores/useWorkoutStore'
 import { fetchPrevious } from '@/lib/start-workout'
 import { fmtKg, fmtTonnes } from '@/lib/gym-stats'
+import { supersetLabels } from '@/lib/plans'
 import ExercisePicker from '@/components/gym/ExercisePicker'
 
 const fmtTime = (totalSec: number) => {
@@ -79,12 +80,21 @@ function SetRow({ set, index, previous, onChange, onToggle }: {
 
 // ─── Exercise card ──────────────────────────────────────────────────────────
 
-function ExerciseCard({ ex, index, total, expanded, onExpand }: {
+function SupersetBadge({ label }: { label: string | null }) {
+  if (!label) return null
+  return <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#f5a03a]/15 text-[#f5a03a] text-[11px] font-mono">{label}</span>
+}
+
+function ExerciseCard({ ex, index, total, label, expanded, onExpand, onOpen }: {
   ex: ExerciseEntry
   index: number
   total: number
+  /** Superset label like "A1", null when standalone. */
+  label: string | null
   expanded: boolean
   onExpand: () => void
+  /** Opens another exercise (the next one of a superset). */
+  onOpen: (id: string) => void
 }) {
   const { updateSet, completeSet, addSet, removeSet, removeExercise, reorderExercise } = useWorkoutStore()
   const [menu, setMenu] = useState(false)
@@ -94,7 +104,8 @@ function ExerciseCard({ ex, index, total, expanded, onExpand }: {
   if (!expanded) {
     return (
       <button onClick={onExpand}
-        className="w-full flex items-center gap-3 rounded-2xl bg-[#111] border border-[#1e1e1e] px-4 py-3 text-left cursor-pointer hover:border-[#2a2a2a]">
+        className={`w-full flex items-center gap-3 rounded-2xl bg-[#111] border px-4 py-3 text-left cursor-pointer hover:border-[#2a2a2a] ${label ? 'border-[#f5a03a]/20' : 'border-[#1e1e1e]'}`}>
+        <SupersetBadge label={label} />
         <span className={`flex-1 min-w-0 truncate text-[14px] ${done ? 'text-[#777]' : ''}`}>{ex.name}</span>
         <span className={`text-[12px] font-mono ${done ? 'text-[#c8f53a]' : 'text-[#777]'}`}>{doneCount}/{ex.sets.length}</span>
         {done && <span className="text-[#c8f53a]" aria-label="ukończone">✓</span>}
@@ -104,14 +115,21 @@ function ExerciseCard({ ex, index, total, expanded, onExpand }: {
 
   const toggle = (set: SetEntry) => {
     if (set.done) updateSet(ex.id, set.id, { done: false, completedAt: undefined })
-    else completeSet(ex.id, set.id)
+    else {
+      const next = completeSet(ex.id, set.id)
+      if (next) onOpen(next)
+    }
   }
 
   return (
     <div className="rounded-2xl bg-[#111] border border-[#c8f53a]/25 p-3">
       <div className="flex items-start gap-2 px-1">
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-medium text-[#c8f53a] truncate">{ex.name}</div>
+          <div className="flex items-center gap-2">
+            <SupersetBadge label={label} />
+            <div className="text-[15px] font-medium text-[#c8f53a] truncate">{ex.name}</div>
+          </div>
+          {label && <div className="text-[11px] text-[#f5a03a] mt-0.5">Superseria — serie na zmianę, przerwa po ostatnim ćwiczeniu</div>}
           <div className="text-[12px] text-[#777] mt-0.5">
             {ex.plan ? `Plan: ${ex.plan}` : `Cel: ${ex.targetSets}×${repsText(ex)}${ex.targetWeight ? ` @ ${fmtKg(ex.targetWeight)} kg` : ''}`}
             {ex.restSeconds ? ` · przerwa ${fmtTime(ex.restSeconds)}` : ''}
@@ -231,6 +249,7 @@ export default function ActiveWorkout() {
   // The first unfinished exercise is open unless the user opened another one.
   const firstOpen = activeWorkout.exercises.find(ex => !isDone(ex))?.id ?? null
   const openId = expandedId && activeWorkout.exercises.some(e => e.id === expandedId) ? expandedId : firstOpen
+  const labels = supersetLabels(activeWorkout.exercises)
 
   const addFromPicker = async (pick: { id: string; name: string }) => {
     setPicking(false)
@@ -303,8 +322,8 @@ export default function ActiveWorkout() {
             <p className="text-center text-[13px] text-[#666] py-8">Pusty trening — dodaj pierwsze ćwiczenie.</p>
           )}
           {activeWorkout.exercises.map((ex, i) => (
-            <ExerciseCard key={ex.id} ex={ex} index={i} total={activeWorkout.exercises.length}
-              expanded={ex.id === openId} onExpand={() => setExpandedId(ex.id)} />
+            <ExerciseCard key={ex.id} ex={ex} index={i} total={activeWorkout.exercises.length} label={labels[i]}
+              expanded={ex.id === openId} onExpand={() => setExpandedId(ex.id)} onOpen={setExpandedId} />
           ))}
 
           {picking ? (

@@ -30,6 +30,7 @@ const fromPlan = (e: PlannedExercise) => ({
   restSeconds: e.restSeconds ?? 120,
   plan: formatPrescription(e),
   notes: e.notes || undefined,
+  superset: e.superset,
 })
 
 const repsLabel = (min: number, max?: number | null) => (max && max !== min ? `${min}–${max}` : String(min))

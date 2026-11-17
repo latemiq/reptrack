@@ -24,6 +24,7 @@ const fromPlan = (e: PlannedExercise) => ({
   restSeconds: e.restSeconds ?? 120,
   plan: formatPrescription(e),
   notes: e.notes || undefined,
+  superset: e.superset,
 })
 
 /** Gym home: this week, one big start for today, templates, latest record and weekly volume. */

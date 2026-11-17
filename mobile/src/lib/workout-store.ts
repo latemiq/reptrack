@@ -27,6 +27,8 @@ export interface ExerciseEntry {
   plan?: string
   /** Trainer's note for this exercise. */
   notes?: string
+  /** Superset with the previous exercise (from the trainer's plan). */
+  superset?: boolean
   /** Sets from the last time ("Poprz." column). */
   previous?: { weightKg: number | null; reps: number | null }[]
   sets: SetEntry[]

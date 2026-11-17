@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import ExercisePicker from '@/components/gym/ExercisePicker'
-import { DAY_LABELS, type PlannedExercise, type PlannedSession } from '@/lib/plans'
+import { DAY_LABELS, supersetLabels, type PlannedExercise, type PlannedSession } from '@/lib/plans'
 
 interface Props {
   session: PlannedSession
@@ -31,6 +31,14 @@ export default function SessionEditor({ session, weekLabel, remainingWeeks, onCh
     ;[arr[idx], arr[j]] = [arr[j], arr[idx]]
     patch({ exercises: arr })
   }
+
+  // Removing the first exercise of a superset must not glue the rest onto the exercise above.
+  const removeEx = (idx: number) => patch({
+    exercises: session.exercises
+      .map((e, j) => (j === idx + 1 && !session.exercises[idx].superset ? { ...e, superset: false } : e))
+      .filter((_, j) => j !== idx),
+  })
+  const labels = supersetLabels(session.exercises)
 
   const field = 'bg-[#0a0a0a] border border-[#1e1e1e] rounded-lg px-2 py-1.5 text-[12px] text-[#f0ece4] placeholder:text-[#333] focus:outline-none focus:border-[#c8f53a]/40'
   const cell = `${field} w-full text-center font-mono`
@@ -72,11 +80,26 @@ export default function SessionEditor({ session, weekLabel, remainingWeeks, onCh
               <span />
             </div>
 
-            <div className="space-y-1.5">
+            <div>
               {session.exercises.map((e, i) => (
-                <div key={i} className="bg-[#131313] border border-[#1c1c1c] rounded-xl p-2 space-y-1.5">
+                <Fragment key={i}>
+                {i > 0 && (
+                  <div className="flex items-center justify-center h-6">
+                    <button onClick={() => patchEx(i, { superset: !e.superset })}
+                      title={e.superset ? 'Rozłącz superserię' : 'Połącz z ćwiczeniem wyżej w superserię'}
+                      className={`px-2 py-0.5 rounded-md text-[9px] font-mono uppercase tracking-[1.2px] border cursor-pointer transition-colors ${
+                        e.superset ? 'bg-[#f5a03a]/10 border-[#f5a03a]/40 text-[#f5a03a] hover:bg-[#f5a03a]/20' : 'border-transparent text-[#3a3a3a] hover:text-[#f5a03a] hover:border-[#f5a03a]/30'
+                      }`}>
+                      {e.superset ? '⛓ superseria · rozłącz' : '+ superseria'}
+                    </button>
+                  </div>
+                )}
+                <div className={`bg-[#131313] border rounded-xl p-2 space-y-1.5 ${labels[i] ? 'border-[#f5a03a]/30' : 'border-[#1c1c1c]'}`}>
                   <div className="grid grid-cols-4 md:grid-cols-[1fr_44px_44px_44px_56px_52px_44px_56px_54px] gap-1.5 items-center">
-                    <span className="col-span-4 md:col-span-1 text-[12px] text-[#ddd] truncate px-1" title={e.name}>{i + 1}. {e.name}</span>
+                    <span className="col-span-4 md:col-span-1 text-[12px] text-[#ddd] truncate px-1" title={e.name}>
+                      {labels[i] && <span className="mr-1.5 px-1.5 py-0.5 rounded bg-[#f5a03a]/15 text-[#f5a03a] text-[10px] font-mono">{labels[i]}</span>}
+                      {i + 1}. {e.name}
+                    </span>
                     <input type="number" min={1} max={20} aria-label="Serie" value={e.sets} onChange={ev => patchEx(i, { sets: Math.max(1, Number(ev.target.value) || 1) })} className={cell} />
                     <input type="number" min={1} aria-label="Powtórzenia od" value={e.repsMin ?? ''} placeholder="—" onChange={ev => patchEx(i, { repsMin: num(ev.target.value) })} className={cell} />
                     <input type="number" min={1} aria-label="Powtórzenia do" value={e.repsMax ?? ''} placeholder="—" onChange={ev => patchEx(i, { repsMax: num(ev.target.value) })} className={cell} />
@@ -87,12 +110,13 @@ export default function SessionEditor({ session, weekLabel, remainingWeeks, onCh
                     <div className="flex justify-end">
                       <button onClick={() => moveEx(i, -1)} className="w-5 h-6 text-[#555] hover:text-[#f0ece4] cursor-pointer" aria-label="W górę">↑</button>
                       <button onClick={() => moveEx(i, 1)} className="w-5 h-6 text-[#555] hover:text-[#f0ece4] cursor-pointer" aria-label="W dół">↓</button>
-                      <button onClick={() => patch({ exercises: session.exercises.filter((_, j) => j !== i) })} className="w-5 h-6 text-[#555] hover:text-red-400 cursor-pointer" aria-label="Usuń">×</button>
+                      <button onClick={() => removeEx(i)} className="w-5 h-6 text-[#555] hover:text-red-400 cursor-pointer" aria-label="Usuń">×</button>
                     </div>
                   </div>
                   <input value={e.notes} onChange={ev => patchEx(i, { notes: ev.target.value })} placeholder="Uwagi techniczne, tempo, wariant…"
                     className={`${field} w-full text-[11px]`} />
                 </div>
+                </Fragment>
               ))}
             </div>
 

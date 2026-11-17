@@ -32,6 +32,8 @@ export interface PlannedExercise {
   rpe: number | null
   restSeconds: number | null
   notes: string
+  /** Superset with the previous exercise. */
+  superset?: boolean
 }
 
 export interface TemplateExercise {
@@ -70,6 +72,42 @@ export interface GymOverview {
 
 export const fmtKg = (kg: number) => (Number.isInteger(kg) ? String(kg) : kg.toFixed(1).replace('.', ','))
 export const fmtTonnes = (kg: number) => `${(kg / 1000).toFixed(1).replace('.', ',')} t`
+
+// Same as lib/plans.ts on the web.
+/**
+ * Superset labels ("A1", "A2", "B1"…) for exercises joined with a neighbour; null for standalone ones.
+ * An exercise with superset=true belongs to the group of the exercise before it.
+ */
+export function supersetLabels(list: { superset?: boolean }[]): (string | null)[] {
+  const out: (string | null)[] = list.map(() => null)
+  let group = -1
+  for (let i = 0; i < list.length; i++) {
+    const joined = i > 0 && !!list[i].superset
+    const startsGroup = !joined && !!list[i + 1]?.superset
+    if (startsGroup) group++
+    if (startsGroup || joined) {
+      let n = 1
+      for (let j = i; j > 0 && list[j].superset; j--) n++
+      out[i] = `${String.fromCharCode(65 + (group % 26))}${n}`
+    }
+  }
+  return out
+}
+
+/**
+ * After a set of exercise `idx` is done: which exercise of its superset comes next and whether to rest now.
+ * Goes forward through the group (A1 → A2 → …) without rest, then rests and wraps back to the first
+ * exercise that still has sets left. Standalone exercises: no jump, always rest.
+ */
+export function supersetNext<T extends { superset?: boolean }>(list: T[], idx: number, hasSetsLeft: (e: T) => boolean): { next: number | null; rest: boolean } {
+  let start = idx, end = idx
+  while (start > 0 && list[start]?.superset) start--
+  while (list[end + 1]?.superset) end++
+  if (start === end) return { next: null, rest: true }
+  for (let j = idx + 1; j <= end; j++) if (hasSetsLeft(list[j])) return { next: j, rest: false }
+  for (let j = start; j <= idx; j++) if (hasSetsLeft(list[j])) return { next: j, rest: true }
+  return { next: null, rest: true }
+}
 
 export function formatPrescription(e: PlannedExercise): string {
   const reps = e.repsMin != null && e.repsMax != null && e.repsMax !== e.repsMin ? `${e.repsMin}–${e.repsMax}` : String(e.repsMin ?? e.repsMax ?? '?')

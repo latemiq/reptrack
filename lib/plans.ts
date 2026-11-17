@@ -27,6 +27,8 @@ export interface PlannedExercise {
   rpe: number | null
   restSeconds: number | null
   notes: string
+  /** Done as a superset with the previous exercise (alternating sets, rest only after the last one). */
+  superset?: boolean
 }
 
 export interface PlannedSession {
@@ -147,6 +149,41 @@ export function formatReps(e: Pick<PlannedExercise, 'repsMin' | 'repsMax'>): str
   return String(e.repsMin ?? e.repsMax ?? '?')
 }
 
+/**
+ * Superset labels ("A1", "A2", "B1"…) for exercises joined with a neighbour; null for standalone ones.
+ * An exercise with superset=true belongs to the group of the exercise before it.
+ */
+export function supersetLabels(list: { superset?: boolean }[]): (string | null)[] {
+  const out: (string | null)[] = list.map(() => null)
+  let group = -1
+  for (let i = 0; i < list.length; i++) {
+    const joined = i > 0 && !!list[i].superset
+    const startsGroup = !joined && !!list[i + 1]?.superset
+    if (startsGroup) group++
+    if (startsGroup || joined) {
+      let n = 1
+      for (let j = i; j > 0 && list[j].superset; j--) n++
+      out[i] = `${String.fromCharCode(65 + (group % 26))}${n}`
+    }
+  }
+  return out
+}
+
+/**
+ * After a set of exercise `idx` is done: which exercise of its superset comes next and whether to rest now.
+ * Goes forward through the group (A1 → A2 → …) without rest, then rests and wraps back to the first
+ * exercise that still has sets left. Standalone exercises: no jump, always rest.
+ */
+export function supersetNext<T extends { superset?: boolean }>(list: T[], idx: number, hasSetsLeft: (e: T) => boolean): { next: number | null; rest: boolean } {
+  let start = idx, end = idx
+  while (start > 0 && list[start]?.superset) start--
+  while (list[end + 1]?.superset) end++
+  if (start === end) return { next: null, rest: true }
+  for (let j = idx + 1; j <= end; j++) if (hasSetsLeft(list[j])) return { next: j, rest: false }
+  for (let j = start; j <= idx; j++) if (hasSetsLeft(list[j])) return { next: j, rest: true }
+  return { next: null, rest: true }
+}
+
 /** One-line prescription, e.g. "4×6–8 · 80 kg · @8". */
 export function formatPrescription(e: PlannedExercise): string {
   const parts = [`${e.sets}×${formatReps(e)}`]
@@ -244,6 +281,7 @@ export function sanitizeMacrocycle(input: unknown): { plan: Omit<Macrocycle, 'id
             rpe: optNum(e.rpe, 1, 10),
             restSeconds: optInt(e.restSeconds, 0, 1800),
             notes: str(e.notes, 500),
+            superset: outEx.length > 0 && e.superset === true,
           })
         }
         outSessions.push({ id: sId, dayOfWeek: day, name: str(s.name, 120) || 'Trening', notes: str(s.notes, 1000), exercises: outEx })
@@ -268,6 +306,7 @@ interface ExerciseDbRow {
   position: number; exercise_id: string; exercise_name: string; sets: number
   reps_min: number | null; reps_max: number | null; weight_kg: number | string | null
   percent_1rm: number | string | null; rpe: number | string | null; rest_seconds: number | null; notes: string | null
+  superset: boolean | null
 }
 interface SessionDbRow { id: string; position: number; day_of_week: number; name: string; notes: string | null; planned_exercises: ExerciseDbRow[] }
 interface MicroDbRow { id: string; position: number; notes: string | null; planned_sessions: SessionDbRow[] }
@@ -281,7 +320,7 @@ const byPos = <T extends { position: number }>(a: T[] | null | undefined) => [..
 const numOrNull = (v: number | string | null) => (v == null ? null : Number(v))
 
 export const MACRO_TREE_SELECT =
-  'id, client_id, name, goal, start_date, notes, mesocycles(id, position, name, focus, notes, microcycles(id, position, notes, planned_sessions(id, position, day_of_week, name, notes, planned_exercises(position, exercise_id, exercise_name, sets, reps_min, reps_max, weight_kg, percent_1rm, rpe, rest_seconds, notes))))'
+  'id, client_id, name, goal, start_date, notes, mesocycles(id, position, name, focus, notes, microcycles(id, position, notes, planned_sessions(id, position, day_of_week, name, notes, planned_exercises(position, exercise_id, exercise_name, sets, reps_min, reps_max, weight_kg, percent_1rm, rpe, rest_seconds, notes, superset))))'
 
 export function macroFromRow(r: MacroDbRow): Macrocycle {
   return {
@@ -317,6 +356,7 @@ export function macroFromRow(r: MacroDbRow): Macrocycle {
               rpe: numOrNull(e.rpe),
               restSeconds: e.rest_seconds,
               notes: e.notes ?? '',
+              superset: !!e.superset,
             })),
           })),
       })),
