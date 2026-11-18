@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { MuscleMap, type MuscleWeek } from '@/components/MuscleMap'
 import { Btn, Card, ErrorBox, Kicker, Loading } from '@/components/ui'
 import { useApi } from '@/lib/api'
 import { fmtKg, fmtTonnes, formatPrescription, relativeDay, treningLabel, type GymOverview, type PlannedExercise, type WorkoutTemplate } from '@/lib/gym'
@@ -34,12 +35,15 @@ export default function GymHome() {
   const active = useWorkout(s => s.workout)
   const [overview, setOverview] = useState<GymOverview | null>(null)
   const [templates, setTemplates] = useState<WorkoutTemplate[] | null>(null)
+  const [muscles, setMuscles] = useState<MuscleWeek | null>(null)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [starting, setStarting] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
+    // Separate from the rest so an older server without this endpoint doesn't break the screen.
+    api<MuscleWeek>('/api/gym/muscles').then(setMuscles).catch(() => {})
     try {
       const [o, t] = await Promise.all([
         api<GymOverview>('/api/gym/overview'),
@@ -137,6 +141,10 @@ export default function GymHome() {
             <Btn title="▶  Rozpocznij" variant="dark" onPress={hero.go} loading={starting} />
           </View>
         ) : templates === null ? <Loading /> : null}
+
+        <View style={{ marginTop: 14 }}>
+          <MuscleMap data={muscles} />
+        </View>
 
         <View style={[s.rowBetween, { marginTop: 20, marginBottom: 8 }]}>
           <Kicker>Szablony</Kicker>

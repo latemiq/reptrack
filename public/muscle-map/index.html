@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Mapa mięśni</title>
+<!--
+  RepTrack 3D muscle map. Shown inside the mobile app (WebView) and usable on the web.
+  Data in:   window.setMuscles({ chest: 8, quadriceps: 11, ... })   sets per muscle group
+             window.setView('front' | 'back' | 'spin')
+             window.selectGroup('chest' | null)
+  Data out:  ReactNativeWebView.postMessage / parent.postMessage with
+             { type: 'ready' } after the model loads, { type: 'select', group } on tap.
+  Query:     ?bg=111111  background colour (default transparent)
+  Model: Z-Anatomy via free-muscles, CC BY-SA 4.0 — see ATTRIBUTION.md.
+-->
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none}
+#stage{position:fixed;inset:0;touch-action:pan-y}
+#load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#777;font:13px system-ui,sans-serif}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="load">Ładuję model…</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
+
+const params = new URLSearchParams(location.search)
+if (params.get('bg')) document.body.style.background = '#' + params.get('bg').replace(/[^0-9a-f]/gi, '')
+
+// RepTrack palette: untrained = graphite, then dim → full lime with more sets.
+const REST = 0x34322f, BONE = 0x4a4842, HEAD = 0x3a3834
+const LEVELS = [[10, 0xc8f53a], [6, 0x7a9922], [0.5, 0x3f4d17]]
+const colorFor = sets => (LEVELS.find(([min]) => sets >= min) ?? [0, REST])[1]
+
+const send = msg => {
+  const s = JSON.stringify(msg)
+  if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s)
+  else if (window.parent !== window) window.parent.postMessage(s, '*')
+}
+
+const stage = document.getElementById('stage')
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+renderer.setPixelRatio(Math.min(2, devicePixelRatio))
+renderer.outputColorSpace = THREE.SRGBColorSpace
+stage.appendChild(renderer.domElement)
+const scene = new THREE.Scene()
+const cam = new THREE.PerspectiveCamera(26, 1, 0.01, 100)
+scene.add(cam)
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.4))
+const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(2, 3, 4); cam.add(key)
+const fill = new THREE.DirectionalLight(0xffffff, 0.5); fill.position.set(-3, 1, 1); cam.add(fill)
+const pivot = new THREE.Group(); scene.add(pivot)
+
+let fitHeight = 1.8
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight
+  if (!w || !h) return
+  renderer.setSize(w, h)
+  cam.aspect = w / h
+  cam.updateProjectionMatrix()
+  const span = Math.max(fitHeight, 0.7 * w / h)
+  cam.position.set(0, 0, span / 2 / Math.tan(THREE.MathUtils.degToRad(13)) * 1.06)
+  cam.lookAt(0, 0, 0)
+}
+new ResizeObserver(resize).observe(stage)
+
+const groupMats = {}            // group → material
+const pick = []                 // tappable meshes
+let sets = {}, selected = null
+
+function smoothNormals(mesh) {
+  const g = mesh.geometry
+  for (const a of Object.keys(g.attributes)) if (a !== 'position') g.deleteAttribute(a)
+  const m = mergeVertices(g, 1e-4)
+  m.computeVertexNormals()
+  mesh.geometry = m
+}
+
+function paint() {
+  for (const [g, mat] of Object.entries(groupMats)) {
+    mat.color.setHex(colorFor(sets[g] ?? 0))
+    mat.emissive.setHex(g === selected ? 0x2a3a08 : 0)
+  }
+}
+
+/** Swap the anatomical face for a smooth mannequin head. */
+function mannequinHead(root) {
+  root.updateMatrixWorld(true)
+  const all = new THREE.Box3().setFromObject(root), cut = all.max.y - 0.24
+  const head = new THREE.Box3(), mb = new THREE.Box3(), c = new THREE.Vector3()
+  root.traverse(o => {
+    if (!o.isMesh) return
+    mb.setFromObject(o); mb.getCenter(c)
+    if (c.y > cut) {
+      o.visible = false
+      head.union(mb)
+      const i = pick.indexOf(o); if (i >= 0) pick.splice(i, 1)
+    }
+  })
+  if (head.isEmpty()) return
+  const hc = head.getCenter(new THREE.Vector3()), hs = head.getSize(new THREE.Vector3())
+  const prof = [[0, 0], [.22, .01], [.38, .06], [.5, .16], [.6, .3], [.68, .46], [.72, .6], [.7, .74], [.6, .87], [.38, .96], [0, 1]]
+    .map(([r, y]) => new THREE.Vector2(r, y))
+  const geo = new THREE.LatheGeometry(prof, 64); geo.computeVertexNormals()
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: HEAD, roughness: 0.6 }))
+  mesh.position.set(hc.x, hc.y - hs.y * 0.26, hc.z + hs.z * 0.02)
+  mesh.scale.set(hs.x * 0.56, hs.y * 0.8, hs.z * 0.56)
+  root.add(mesh)
+}
+
+const draco = new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/gltf/')
+new GLTFLoader().setDRACOLoader(draco).load('model.glb', gltf => {
+  const root = gltf.scene
+  const boneMat = new THREE.MeshStandardMaterial({ color: BONE, roughness: 0.9 })
+  const restMat = new THREE.MeshStandardMaterial({ color: REST, roughness: 0.85 })
+  root.traverse(o => {
+    if (!o.isMesh) return
+    let e = o.userData, p = o
+    while (p && !e.kind) { p = p.parent; e = p ? p.userData : {} }
+    smoothNormals(o)
+    if (e.kind === 'bone') { o.material = boneMat; return }
+    if (e.kind === 'muscle' && e.group) {
+      o.material = groupMats[e.group] ??= new THREE.MeshStandardMaterial({ color: REST, roughness: 0.85 })
+      o.userData.group = e.group
+      pick.push(o)
+    } else o.material = restMat
+  })
+  mannequinHead(root)
+  const box = new THREE.Box3().setFromObject(root)
+  root.position.sub(box.getCenter(new THREE.Vector3()))
+  fitHeight = box.getSize(new THREE.Vector3()).y
+  pivot.add(root)
+  resize()
+  paint()
+  document.getElementById('load').remove()
+  send({ type: 'ready' })
+}, undefined, err => {
+  document.getElementById('load').textContent = 'Nie udało się wczytać modelu'
+  console.error(err)
+  send({ type: 'error' })
+})
+
+// Rotation: drag horizontally; spins slowly until the first touch.
+let rotY = 0.35, target = null, spin = true, drag = false, lastX = 0, moved = 0
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2()
+stage.addEventListener('pointerdown', e => { drag = true; lastX = e.clientX; moved = 0 })
+stage.addEventListener('pointermove', e => {
+  if (!drag) return
+  const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx)
+  if (moved > 4) { spin = false; target = null; rotY += dx * 0.012 }
+})
+const end = e => {
+  if (!drag) return
+  drag = false
+  if (moved > 6 || e.type === 'pointercancel') return
+  const r = stage.getBoundingClientRect()
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1)
+  ray.setFromCamera(ndc, cam)
+  const hit = ray.intersectObjects(pivot.children, true).find(h => h.object.visible)
+  const group = hit?.object.userData.group ?? null
+  selected = group === selected ? null : group
+  paint()
+  send({ type: 'select', group: selected })
+}
+stage.addEventListener('pointerup', end)
+stage.addEventListener('pointercancel', end)
+
+const turnTo = side => {
+  spin = false
+  const base = Math.round(rotY / (2 * Math.PI)) * 2 * Math.PI
+  target = side === 'back' ? Math.round((rotY - Math.PI) / (2 * Math.PI)) * 2 * Math.PI + Math.PI : base
+}
+
+window.setMuscles = data => { sets = data || {}; paint() }
+window.selectGroup = g => { selected = g || null; paint() }
+window.setView = v => { if (v === 'spin') { spin = true; target = null } else turnTo(v) }
+window.addEventListener('message', e => {
+  try {
+    const m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+    if (m?.type === 'muscles') window.setMuscles(m.sets)
+    if (m?.type === 'view') window.setView(m.view)
+    if (m?.type === 'select') window.selectGroup(m.group)
+  } catch {}
+})
+
+;(function loop() {
+  if (spin) rotY += 0.005
+  else if (target !== null) { rotY += (target - rotY) * 0.12; if (Math.abs(target - rotY) < 0.001) target = null }
+  pivot.rotation.y = rotY
+  renderer.render(scene, cam)
+  requestAnimationFrame(loop)
+})()
+</script>
+</body>
+</html>
