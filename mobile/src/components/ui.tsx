@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps, type ViewStyle } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
@@ -59,7 +61,38 @@ export function Field({ label, ...props }: TextInputProps & { label?: string }) 
   return (
     <View style={{ marginBottom: 14 }}>
       {label && <Text style={s.label}>{label}</Text>}
-      <TextInput placeholderTextColor="#444" {...props} style={[s.input, props.style]} />
+      <TextInput placeholderTextColor={C.textDim} {...props} style={[s.input, props.style]} />
+    </View>
+  )
+}
+
+/** Password with a show/hide button. */
+export function PasswordField({ label, children, ...props }: Omit<TextInputProps, 'secureTextEntry'> & { label?: string; children?: React.ReactNode }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <View style={{ marginBottom: 14 }}>
+      {label && <Text style={s.label}>{label}</Text>}
+      <View>
+        <TextInput placeholderTextColor={C.textDim} autoCapitalize="none" autoCorrect={false} {...props}
+          secureTextEntry={!visible} style={[s.input, { paddingRight: 52 }, props.style]} />
+        <Pressable onPress={() => setVisible(v => !v)} hitSlop={8}
+          accessibilityRole="button" accessibilityLabel={visible ? 'Ukryj hasło' : 'Pokaż hasło'} accessibilityState={{ selected: visible }}
+          style={{ position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.textDim} />
+        </Pressable>
+      </View>
+      {children}
+    </View>
+  )
+}
+
+/** Clerk's rules for this app: 8+ characters; easy-to-guess and leaked passwords are rejected on submit. */
+export function PasswordRules({ value }: { value: string }) {
+  const long = value.length >= 8
+  return (
+    <View style={{ marginTop: 6 }}>
+      <Text style={{ color: long ? C.lime : C.textDim, fontSize: 12 }}>{long ? '✓' : '○'} Co najmniej 8 znaków</Text>
+      <Text style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Hasła łatwe do zgadnięcia albo takie, które wyciekły z innych serwisów, odrzucimy.</Text>
     </View>
   )
 }

@@ -20,6 +20,12 @@ const MESSAGES: Record<string, string> = {
 
 type Shape = { code?: string; errors?: { code?: string }[] } | null | undefined
 
+/** Clerk's error code (e.g. form_identifier_exists), for reacting to a specific case. */
+export const clerkErrorCode = (e: unknown): string | null => {
+  const err = e as Shape
+  return err?.errors?.[0]?.code ?? err?.code ?? null
+}
+
 export function clerkErrorPl(e: unknown): string {
   const err = e as Shape
   const code = err?.errors?.[0]?.code ?? err?.code

@@ -1,8 +1,8 @@
 import { useSignIn } from '@clerk/expo'
-import { Link, router } from 'expo-router'
+import { Link, router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Text, View } from 'react-native'
-import { Body, Btn, ErrorBox, Field, Kicker, Screen, Title } from '@/components/ui'
+import { Body, Btn, ErrorBox, Field, Kicker, PasswordField, Screen, Title } from '@/components/ui'
 import { clerkErrorPl } from '@/lib/clerk-errors'
 import { C } from '@/lib/theme'
 
@@ -12,7 +12,8 @@ import { C } from '@/lib/theme'
  */
 export default function SignIn() {
   const { signIn, fetchStatus } = useSignIn()
-  const [email, setEmail] = useState('')
+  const params = useLocalSearchParams<{ email?: string }>()
+  const [email, setEmail] = useState(params.email ?? '')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [step, setStep] = useState<'credentials' | 'code'>('credentials')
@@ -78,8 +79,12 @@ export default function SignIn() {
             <ErrorBox message={error} />
             <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email"
               keyboardType="email-address" placeholder="ty@example.com" />
-            <Field label="Hasło" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password"
-              placeholder="••••••••" onSubmitEditing={submit} />
+            <PasswordField label="Hasło" value={password} onChangeText={setPassword} autoComplete="current-password"
+              textContentType="password" placeholder="••••••••" onSubmitEditing={submit} />
+            <Link href={{ pathname: '/reset-password', params: { email: email.trim() } }}
+              style={{ color: C.textDim, fontSize: 13, alignSelf: 'flex-end', marginTop: -6, marginBottom: 14, paddingVertical: 4 }}>
+              Nie pamiętasz hasła?
+            </Link>
             <Btn title="Zaloguj" onPress={submit} loading={busy} disabled={!email || !password} />
             <Link href="/sign-up" style={{ color: C.textDim, textAlign: 'center', marginTop: 20, fontSize: 14 }}>
               Nie masz konta? <Text style={{ color: C.lime }}>Załóż je</Text>

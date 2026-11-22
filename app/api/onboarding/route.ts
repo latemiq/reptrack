@@ -21,6 +21,7 @@ export async function POST(req: Request) {
   const weeklyDays = positiveOrNull(body.weeklyDays)
   const level      = ['beginner', 'intermediate', 'advanced'].includes(body.level) ? body.level : null
   const goals: string[] = Array.isArray(body.goals) ? body.goals : []
+  const firstName = typeof body.firstName === 'string' ? body.firstName.trim().slice(0, 60) : ''
 
   const supabase = supabaseAdmin()
   await ensureProfile(userId)
@@ -33,6 +34,8 @@ export async function POST(req: Request) {
       height_cm:    heightCm ? Math.round(heightCm) : null,
       level,
       weekly_days:  weeklyDays ? Math.round(weeklyDays) : null,
+      // Clerk's webhook also syncs the name, but it can't reach localhost and may come later.
+      ...(firstName ? { first_name: firstName } : {}),
       onboarded_at: now,
       updated_at:   now,
     })

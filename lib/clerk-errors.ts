@@ -24,6 +24,9 @@ const MESSAGES: Record<string, string> = {
   network_error: 'Brak połączenia z internetem.',
 }
 
+/** Clerk's error code (e.g. form_identifier_exists), for reacting to a specific case. */
+export const clerkErrorCode = (e: unknown): string | null => (e as ClerkError)?.errors?.[0]?.code ?? null
+
 /** Polish message for a Clerk (or any) error thrown by sign-in / sign-up calls. */
 export function clerkErrorPl(e: unknown): string {
   const err = (e as ClerkError)?.errors?.[0]

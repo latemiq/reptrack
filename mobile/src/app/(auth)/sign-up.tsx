@@ -1,9 +1,9 @@
-import { useAuth, useSignUp } from '@clerk/expo'
+import { useAuth, useSignUp, useUser } from '@clerk/expo'
 import { Link, router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { Body, Btn, ErrorBox, Field, Kicker, Screen, Title } from '@/components/ui'
-import { clerkErrorPl } from '@/lib/clerk-errors'
+import { Body, Btn, ErrorBox, Field, Kicker, PasswordField, PasswordRules, Screen, Title } from '@/components/ui'
+import { clerkErrorCode, clerkErrorPl } from '@/lib/clerk-errors'
 import { API_URL } from '@/lib/api'
 import { C, R } from '@/lib/theme'
 
@@ -17,22 +17,26 @@ const LEVELS = [
 export default function SignUp() {
   const { signUp, fetchStatus } = useSignUp()
   const { getToken } = useAuth()
+  const { user } = useUser()
   const [step, setStep] = useState<'account' | 'verify' | 'survey'>('account')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
+  const [name, setName] = useState('')
   const [weight, setWeight] = useState('')
   const [height, setHeight] = useState('')
   const [level, setLevel] = useState('beginner')
   const [days, setDays] = useState(3)
   const [error, setError] = useState('')
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const busy = fetchStatus === 'fetching'
 
   const createAccount = async () => {
     setError('')
+    setErrorCode(null)
     const { error: e } = await signUp.password({ emailAddress: email.trim(), password })
-    if (e) { setError(clerkErrorPl(e)); return }
+    if (e) { setError(clerkErrorPl(e)); setErrorCode(clerkErrorCode(e)); return }
     const { error: sendErr } = await signUp.verifications.sendEmailCode()
     if (sendErr) { setError(clerkErrorPl(sendErr)); return }
     setStep('verify')
@@ -51,12 +55,15 @@ export default function SignUp() {
   const saveSurvey = async () => {
     setSaving(true)
     setError('')
+    const firstName = name.trim()
+    if (firstName) await user?.update({ firstName }).catch(() => { /* saved below too */ })
     try {
       const token = await getToken()
       await fetch(`${API_URL}/api/onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
+          firstName: firstName || undefined,
           weightKg: Number(weight.replace(',', '.')) || null,
           heightCm: Number(height) || null,
           level,
@@ -83,7 +90,14 @@ export default function SignUp() {
             <Title>Nowe konto</Title>
             <Body dim style={{ marginTop: 6, marginBottom: 24 }}>Wyślemy kod na email, żeby go potwierdzić.</Body>
             <Field label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" placeholder="ty@example.com" />
-            <Field label="Hasło" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder="min. 8 znaków" />
+            <PasswordField label="Hasło" value={password} onChangeText={setPassword} autoComplete="new-password" textContentType="newPassword"
+              placeholder="min. 8 znaków" onSubmitEditing={() => { if (email && password.length >= 8) createAccount() }}>
+              <PasswordRules value={password} />
+            </PasswordField>
+            {errorCode === 'form_identifier_exists' && (
+              <Btn title="Zaloguj się tym adresem" variant="ghost" style={{ marginBottom: 10 }}
+                onPress={() => router.replace({ pathname: '/sign-in', params: { email: email.trim() } })} />
+            )}
             <Btn title="Dalej" onPress={createAccount} loading={busy} disabled={!email || password.length < 8} />
             <Link href="/sign-in" style={{ color: C.textDim, textAlign: 'center', marginTop: 20, fontSize: 14 }}>
               Masz konto? <Text style={{ color: C.lime }}>Zaloguj się</Text>
@@ -96,7 +110,8 @@ export default function SignUp() {
             <Kicker>Krok 2 z 3</Kicker>
             <Title>Sprawdź email</Title>
             <Body dim style={{ marginTop: 6, marginBottom: 24 }}>Wpisz 6-cyfrowy kod wysłany na {email}.</Body>
-            <Field label="Kod" value={code} onChangeText={setCode} keyboardType="number-pad" autoComplete="one-time-code" placeholder="123456" />
+            <Field label="Kod" value={code} onChangeText={setCode} keyboardType="number-pad" autoComplete="one-time-code" placeholder="123456"
+              onSubmitEditing={() => { if (code.trim().length >= 6) verify() }} />
             <Btn title="Potwierdź" onPress={verify} loading={busy} disabled={code.trim().length < 6} />
             <Btn title="Wyślij kod ponownie" variant="ghost" style={{ marginTop: 10 }}
               onPress={async () => { const { error: e } = await signUp.verifications.sendEmailCode(); if (e) setError(clerkErrorPl(e)) }} />
@@ -108,6 +123,7 @@ export default function SignUp() {
             <Kicker>Krok 3 z 3</Kicker>
             <Title>O Tobie</Title>
             <Body dim style={{ marginTop: 6, marginBottom: 24 }}>Trener zobaczy te dane w Twoim profilu.</Body>
+            <Field label="Imię" value={name} onChangeText={setName} autoComplete="given-name" textContentType="givenName" placeholder="Mateusz" />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}><Field label="Waga (kg)" value={weight} onChangeText={setWeight} keyboardType="decimal-pad" placeholder="78" /></View>
               <View style={{ flex: 1 }}><Field label="Wzrost (cm)" value={height} onChangeText={setHeight} keyboardType="number-pad" placeholder="178" /></View>
