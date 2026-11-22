@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MuscleMap, type MuscleWeek } from '@/components/MuscleMap'
 import { Btn, Card, ErrorBox, Kicker, Loading } from '@/components/ui'
@@ -57,8 +57,13 @@ export default function GymHome() {
     }
   }, [api])
 
-  // Refresh when coming back from a finished workout.
-  useFocusEffect(useCallback(() => { load() }, [load]))
+  // Refresh when coming back from a finished workout, and when the app returns from the background
+  // (left open overnight, it would otherwise still show yesterday's session).
+  useFocusEffect(useCallback(() => {
+    load()
+    const sub = AppState.addEventListener('change', state => { if (state === 'active') load() })
+    return () => sub.remove()
+  }, [load]))
 
   const suggested = useMemo(() => {
     if (!templates?.length) return null
