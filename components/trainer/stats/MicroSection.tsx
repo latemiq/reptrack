@@ -4,8 +4,8 @@ import { DAY_LABELS, formatPrescription } from '@/lib/plans'
 import type { SessionStatus, WeekStat } from '@/lib/plan-stats'
 
 const STATUS: Record<SessionStatus, { label: string; className: string }> = {
-  done: { label: '✓ Zrobiona', className: 'text-[#c8f53a]' },
-  missed: { label: '✕ Opuszczona', className: 'text-[#f5a03a]' },
+  done: { label: '✓ Zapisana', className: 'text-[#c8f53a]' },
+  unlogged: { label: '– Brak zapisu', className: 'text-[#999]' },
   today: { label: '● Dziś', className: 'text-[#f0ece4]' },
   upcoming: { label: '○ Zaplanowana', className: 'text-[#777]' },
 }
@@ -33,10 +33,7 @@ export default function MicroSection({ week, total, onSelect }: Props) {
       <div className="flex flex-wrap items-center gap-2">
         <button className={nav} disabled={week.index === 0} onClick={() => onSelect(week.index - 1)}>← Poprzedni</button>
         <button className={nav} disabled={week.index === total - 1} onClick={() => onSelect(week.index + 1)}>Następny →</button>
-        <p className="text-[12px] text-[#999]">
-          Serie: {fmtNum(week.done?.sets)} z {fmtNum(week.planned.sets)} · intensywność: {week.done?.intensity ? `${fmtNum(week.done.intensity)}%` : '—'}
-          {week.planned.intensity ? ` (plan ${fmtNum(week.planned.intensity)}%)` : ''}
-        </p>
+        <p className="text-[12px] text-[#999]">Serie: {fmtNum(week.doneSets)} z {fmtNum(week.plannedSets)}</p>
       </div>
 
       {!week.sessions.length && <p className="text-[12px] text-[#777]">Brak zaplanowanych sesji w tym tygodniu.</p>}
@@ -47,11 +44,11 @@ export default function MicroSection({ week, total, onSelect }: Props) {
           const moved = movedTo && movedTo.toDateString() !== s.date.toDateString()
           return (
             <Panel key={s.session.id} title={s.session.name}
-              hint={`${DAY_LABELS[s.session.dayOfWeek - 1]} ${fmtDay(s.date)}${moved ? ` · wykonana ${fmtDay(movedTo)}` : ''}`}
+              hint={`${DAY_LABELS[s.session.dayOfWeek - 1]} ${fmtDay(s.date)}${moved ? ` · zapis z ${fmtDay(movedTo)}` : ''}`}
               action={<span className={`text-[11px] ${STATUS[s.status].className}`}>{STATUS[s.status].label}</span>}>
               <table className="w-full">
                 <thead>
-                  <tr>{['Ćwiczenie', 'Plan', 'Wykonanie'].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+                  <tr>{['Ćwiczenie', 'Plan', 'Zapis'].map(h => <th key={h} className={th}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {s.exercises.map((e, i) => {
@@ -75,7 +72,7 @@ export default function MicroSection({ week, total, onSelect }: Props) {
       </div>
 
       {week.extra.length > 0 && (
-        <Panel title="Treningi poza planem" hint="Wliczają się do objętości i intensywności tygodnia">
+        <Panel title="Treningi poza planem" hint="Wliczają się do serii tygodnia">
           <ul className="space-y-1 text-[12px] text-[#ccc]">
             {week.extra.map(w => <li key={w.id}>{fmtDay(new Date(w.started_at))} · {w.name} · serie: {w.workout_sets.length}</li>)}
           </ul>

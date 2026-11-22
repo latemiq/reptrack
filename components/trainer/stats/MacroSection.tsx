@@ -1,18 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import WeekChart from '@/components/trainer/stats/WeekChart'
 import { Level, Panel, Tile, fmtDay, fmtNum, td, th } from '@/components/trainer/stats/shared'
 import { focusMeta, type Macrocycle } from '@/lib/plans'
 import { PERIOD_LABEL, type Period, type PlanStats } from '@/lib/plan-stats'
-
-type Metric = 'sets' | 'reps' | 'tonnage'
-
-const METRICS: { key: Metric; label: string; unit: string; hint: string }[] = [
-  { key: 'sets', label: 'Serie', unit: '', hint: 'Liczba serii w tygodniu' },
-  { key: 'reps', label: 'Powtórzenia', unit: '', hint: 'Suma powtórzeń w tygodniu. Dla zakresu, np. 6–8, plan liczy środek.' },
-  { key: 'tonnage', label: 'Tonaż', unit: ' kg', hint: 'Ciężar × powtórzenia. Bez ćwiczeń, dla których nie ma ciężaru.' },
-]
 
 interface Props {
   plan: Macrocycle
@@ -21,21 +12,17 @@ interface Props {
   onSelect: (index: number) => void
 }
 
-/** Whole plan: timeline of periods and blocks, volume vs. intensity curves, strength trend. */
+/** Whole plan: timeline of periods and blocks, logged vs. planned sessions and sets. */
 export default function MacroSection({ plan, stats, selectedWeek, onSelect }: Props) {
-  const [metric, setMetric] = useState<Metric>('sets')
-  const [liftId, setLiftId] = useState('')
   const { weeks, blocks, progress, currentWeek } = stats
   const running = currentWeek >= 0 && currentWeek < weeks.length
-  const measure = METRICS.find(m => m.key === metric) ?? METRICS[0]
-  const lift = stats.lifts.find(l => l.id === liftId) ?? stats.lifts[0]
 
   // Neighbouring blocks of the same period share one band.
   const periods: { period: Period; weeks: number }[] = []
   for (const b of blocks) {
     const last = periods[periods.length - 1]
-    if (last?.period === b.guide.period) last.weeks += b.weeks.length
-    else periods.push({ period: b.guide.period, weeks: b.weeks.length })
+    if (last?.period === b.period) last.weeks += b.weeks.length
+    else periods.push({ period: b.period, weeks: b.weeks.length })
   }
 
   const point = (i: number) => {
@@ -52,11 +39,11 @@ export default function MacroSection({ plan, stats, selectedWeek, onSelect }: Pr
         <Tile label="Tydzień planu"
           value={running ? `${currentWeek + 1} z ${weeks.length}` : currentWeek < 0 ? 'Przed startem' : 'Zakończony'}
           sub={now ? blocks[now.block].name : undefined} />
-        <Tile label="Zrealizowane sesje" value={pct(progress.done, progress.due)} sub={`${progress.done} z ${progress.due}, których termin minął`} />
-        <Tile label="Zrealizowane serie" value={pct(progress.doneSets, progress.plannedSets)} sub={`${progress.doneSets} z ${progress.plannedSets} zaplanowanych`} />
-        <Tile label="Intensywność w tym tygodniu"
-          value={now?.done?.intensity ? `${fmtNum(now.done.intensity)}%` : '—'}
-          sub={now?.planned.intensity ? `plan: ${fmtNum(now.planned.intensity)}% 1RM` : 'średni % 1RM'} />
+        <Tile label="Zapisane sesje" value={pct(progress.done, progress.due)} sub={`${progress.done} z ${progress.due}, których termin minął`} />
+        <Tile label="Zapisane serie" value={pct(progress.doneSets, progress.plannedSets)} sub={`${progress.doneSets} z ${progress.plannedSets} zaplanowanych`} />
+        <Tile label="Serie w tym tygodniu"
+          value={now ? fmtNum(now.doneSets) : '—'}
+          sub={now ? `plan: ${fmtNum(now.plannedSets)}` : undefined} />
       </div>
 
       <Panel title="Oś makrocyklu" hint="Okres wynika z celu bloku. Kliknij blok albo tydzień, żeby zobaczyć szczegóły.">
@@ -105,60 +92,30 @@ export default function MacroSection({ plan, stats, selectedWeek, onSelect }: Pr
         </div>
       </Panel>
 
-      <div className="grid lg:grid-cols-2 gap-2.5">
-        <Panel title="Objętość" hint={measure.hint} action={
-          <div className="flex gap-1" role="group" aria-label="Miara objętości">
-            {METRICS.map(m => (
-              <button key={m.key} onClick={() => setMetric(m.key)} aria-pressed={m.key === metric}
-                className={`px-2 py-1 rounded-lg border text-[11px] cursor-pointer ${m.key === metric ? 'border-[#c8f53a]/30 bg-[#c8f53a]/10 text-[#c8f53a]' : 'border-[#222] text-[#777]'}`}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-        }>
-          <WeekChart kind="bars" unit={measure.unit} selectedWeek={selectedWeek + 1} onSelect={onSelect}
-            points={weeks.map(w => ({ ...point(w.index), planned: w.planned[metric], done: w.done?.[metric] ?? null }))} />
-        </Panel>
-
-        <Panel title="Intensywność" hint="Średni % 1RM ważony powtórzeniami. 1RM szacowane z ostatnich 12 tygodni, z serii do 12 powtórzeń.">
-          <WeekChart kind="lines" unit="%" selectedWeek={selectedWeek + 1} onSelect={onSelect}
-            points={weeks.map(w => ({ ...point(w.index), planned: w.planned.intensity, done: w.done?.intensity ?? null }))} />
-        </Panel>
-      </div>
-
-      {lift && (
-        <Panel title="Siła w trakcie makrocyklu" hint="Najlepsze szacowane 1RM w każdym tygodniu" action={
-          <select value={lift.id} onChange={e => setLiftId(e.target.value)} aria-label="Ćwiczenie"
-            className="max-w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-2 py-1 text-[12px] text-[#ccc] [color-scheme:dark]">
-            {stats.lifts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
-        }>
-          <WeekChart kind="lines" unit=" kg" doneLabel="Szacowane 1RM" selectedWeek={selectedWeek + 1} onSelect={onSelect}
-            points={weeks.map(w => ({ ...point(w.index), done: w.best.get(lift.id) ?? null }))} />
-        </Panel>
-      )}
+      <Panel title="Serie tydzień po tygodniu" hint="Liczba serii w planie i w dzienniku, razem z treningami poza planem. Brak zapisu nie musi znaczyć, że treningu nie było.">
+        <WeekChart selectedWeek={selectedWeek + 1} onSelect={onSelect}
+          points={weeks.map(w => ({ ...point(w.index), planned: w.plannedSets, done: w.doneSets }))} />
+      </Panel>
 
       <details className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-2xl p-4">
         <summary className="text-[12px] text-[#999] cursor-pointer">Wszystkie tygodnie w tabeli</summary>
         <div className="overflow-x-auto mt-2">
           <table className="w-full">
             <thead>
-              <tr>{['Tydz.', 'Blok', 'Sesje', 'Serie', 'Powtórzenia', 'Tonaż (kg)', '% 1RM'].map(h => <th key={h} className={th}>{h}</th>)}</tr>
+              <tr>{['Tydz.', 'Blok', 'Sesje', 'Serie'].map(h => <th key={h} className={th}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {weeks.map(w => (
                 <tr key={w.index}>
                   <td className={td}>{w.index + 1}{w.state === 'current' ? ' (trwa)' : ''}</td>
                   <td className={td}>{blocks[w.block].name}</td>
-                  <td className={td}>{w.done ? w.sessions.filter(s => s.status === 'done').length : '—'} / {w.sessions.length}</td>
-                  {(['sets', 'reps', 'tonnage', 'intensity'] as const).map(k => (
-                    <td key={k} className={td}>{fmtNum(w.done?.[k])} / {fmtNum(w.planned[k])}</td>
-                  ))}
+                  <td className={td}>{w.doneSets != null ? w.sessions.filter(s => s.status === 'done').length : '—'} / {w.sessions.length}</td>
+                  <td className={td}>{fmtNum(w.doneSets)} / {fmtNum(w.plannedSets)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="text-[11px] text-[#777] mt-2">W każdej kolumnie: wykonanie / plan.</p>
+          <p className="text-[11px] text-[#777] mt-2">Sesje i serie: zapisane / w planie.</p>
         </div>
       </details>
     </Level>

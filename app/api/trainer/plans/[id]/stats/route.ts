@@ -3,7 +3,6 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
 import { forbidden, hasClientAccess } from '@/lib/trainer'
 import { MACRO_TREE_SELECT, isUuid, macroFromRow, weekStart, type MacroDbRow } from '@/lib/plans'
-import { REFERENCE_DAYS } from '@/lib/plan-stats'
 
 const DAY = 86400000
 const dbError = () => NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
@@ -32,9 +31,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!await hasClientAccess(userId, plan.clientId)) return forbidden()
 
   const weeks = plan.mesocycles.reduce((n, m) => n + m.microcycles.length, 0)
-  // A spare day on both ends: the browser assigns days in the trainer's time zone.
-  // The earlier weeks give the 1RM reference for the start of the plan (or for a plan that hasn't started).
-  const from = new Date(Math.min(weekStart(plan.startDate, 0).getTime(), Date.now()) - (REFERENCE_DAYS + 1) * DAY)
+  // Spare days on both ends: the browser assigns days in the trainer's time zone.
+  const from = new Date(weekStart(plan.startDate, 0).getTime() - 2 * DAY)
   const to = new Date(weekStart(plan.startDate, weeks).getTime() + DAY)
 
   const { data: workouts, error: workoutsError } = await supabase
