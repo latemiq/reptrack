@@ -118,6 +118,11 @@ export default function PlanEditor({ clientId, planId }: Props) {
     router.push(`/trainer/${encodeURIComponent(clientId)}`)
   }
 
+  const openStats = () => {
+    if (dirty && !confirm('Masz niezapisane zmiany. Wyjść bez zapisu?')) return
+    router.push(`/trainer/${encodeURIComponent(clientId)}/plans/${planId}/stats`)
+  }
+
   if (!plan) {
     return (
       <div className="min-h-full bg-[#080808] p-7">
@@ -166,6 +171,9 @@ export default function PlanEditor({ clientId, planId }: Props) {
         <div className="ml-auto flex items-center gap-3">
           {status && <span className={`text-[11px] font-mono ${status.kind === 'ok' ? 'text-[#c8f53a]' : 'text-red-400'}`}>{status.kind === 'ok' ? '✓ ' : ''}{status.text}</span>}
           {dirty && !status && <span className="text-[11px] font-mono text-[#f5a03a]">Niezapisane zmiany</span>}
+          {planId && (
+            <button onClick={openStats} className={`${smallBtn} text-[#c8f53a] hover:underline`}>Statystyki</button>
+          )}
           <button onClick={save} disabled={saving || (!dirty && !isNew)}
             className="px-4 py-2 rounded-xl text-[11px] font-mono uppercase tracking-[1.3px] bg-[#c8f53a] text-[#080808] hover:bg-[#d8ff4a] disabled:opacity-40 transition-all cursor-pointer">
             {saving ? 'Zapisuję…' : 'Zapisz plan'}

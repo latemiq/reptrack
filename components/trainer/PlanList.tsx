@@ -52,34 +52,38 @@ export function PlanCard({ plan: p, href, subtitle }: { plan: MacrocycleSummary;
   const weekNow = currentWeekIndex(p.startDate)
   const status = planStatus(p)
   return (
-    <Link href={href}
-      className="block bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#c8f53a]/25 rounded-2xl p-4 transition-colors">
-      <div className="flex items-baseline gap-3 mb-2.5">
-        <div className="flex-1 min-w-0">
-          {subtitle && <div className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#c8f53a] truncate">{subtitle}</div>}
-          <div className="text-[13px] font-medium text-[#ddd] truncate">{p.name}</div>
-          <div className="text-[10px] font-mono text-[#555] truncate">
-            {fmt(start)} – {fmt(end)} · {p.weeks} tyg.{p.goal ? ` · ${p.goal}` : ''}
-          </div>
-        </div>
-        <span className={`text-[9px] font-mono uppercase tracking-[1.3px] flex-shrink-0 ${status === 'running' ? 'text-[#c8f53a]' : 'text-[#444]'}`}>
-          {status === 'running' ? `Tydzień ${weekNow + 1}/${p.weeks}` : status === 'planned' ? 'Zaplanowany' : 'Zakończony'}
-        </span>
-      </div>
-      <div className="relative flex gap-0.5 h-6">
-        {p.mesocycles.map((m, i) => {
-          const f = focusMeta(m.focus)
-          return (
-            <div key={i} style={{ flexGrow: Math.max(m.weeks, 1), background: `${f.color}26`, borderColor: `${f.color}55` }}
-              className="basis-0 rounded-md border px-1.5 flex items-center overflow-hidden" title={`${m.name} · ${f.label} · ${m.weeks} tyg.`}>
-              <span className="text-[9px] font-mono truncate" style={{ color: f.color }}>{m.name}</span>
+    <div className="bg-[#0f0f0f] border border-[#1a1a1a] hover:border-[#c8f53a]/25 rounded-2xl transition-colors">
+      <Link href={href} className="block p-4">
+        <div className="flex items-baseline gap-3 mb-2.5">
+          <div className="flex-1 min-w-0">
+            {subtitle && <div className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#c8f53a] truncate">{subtitle}</div>}
+            <div className="text-[13px] font-medium text-[#ddd] truncate">{p.name}</div>
+            <div className="text-[10px] font-mono text-[#555] truncate">
+              {fmt(start)} – {fmt(end)} · {p.weeks} tyg.{p.goal ? ` · ${p.goal}` : ''}
             </div>
-          )
-        })}
-        {status === 'running' && p.weeks > 0 && (
-          <div className="absolute -top-1 -bottom-1 w-0.5 bg-[#f0ece4] rounded" style={{ left: `${((weekNow + 0.5) / p.weeks) * 100}%` }} />
-        )}
+          </div>
+          <span className={`text-[9px] font-mono uppercase tracking-[1.3px] flex-shrink-0 ${status === 'running' ? 'text-[#c8f53a]' : 'text-[#444]'}`}>
+            {status === 'running' ? `Tydzień ${weekNow + 1}/${p.weeks}` : status === 'planned' ? 'Zaplanowany' : 'Zakończony'}
+          </span>
+        </div>
+        <div className="relative flex gap-0.5 h-6">
+          {p.mesocycles.map((m, i) => {
+            const f = focusMeta(m.focus)
+            return (
+              <div key={i} style={{ flexGrow: Math.max(m.weeks, 1), background: `${f.color}26`, borderColor: `${f.color}55` }}
+                className="basis-0 rounded-md border px-1.5 flex items-center overflow-hidden" title={`${m.name} · ${f.label} · ${m.weeks} tyg.`}>
+                <span className="text-[9px] font-mono truncate" style={{ color: f.color }}>{m.name}</span>
+              </div>
+            )
+          })}
+          {status === 'running' && p.weeks > 0 && (
+            <div className="absolute -top-1 -bottom-1 w-0.5 bg-[#f0ece4] rounded" style={{ left: `${((weekNow + 0.5) / p.weeks) * 100}%` }} />
+          )}
+        </div>
+      </Link>
+      <div className="border-t border-[#1a1a1a] px-4 py-2.5 text-right">
+        <Link href={`${href}/stats`} className="text-[10px] font-mono uppercase tracking-[1.3px] text-[#c8f53a] hover:underline">Statystyki cykli →</Link>
       </div>
-    </Link>
+    </div>
   )
 }
