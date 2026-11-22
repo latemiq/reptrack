@@ -1,6 +1,8 @@
 // Periodization model shared by the trainer plan editor and /api/trainer/plans.
 // Tree: Macrocycle → Mesocycle (block) → Microcycle (week) → PlannedSession → PlannedExercise.
 
+import { appDate, dateDiff } from './app-time'
+
 export type Focus = 'hypertrophy' | 'strength' | 'power' | 'endurance' | 'deload' | 'other'
 
 export const FOCUS_OPTIONS: { key: Focus; label: string; color: string }[] = [
@@ -102,7 +104,8 @@ export function toMacroSummary(r: MacroSummaryRow): MacrocycleSummary {
 
 /** 0-based index of the current week within a plan (may be <0 or ≥ weeks). */
 export function currentWeekIndex(startDate: string, now = Date.now()): number {
-  return Math.floor((now - weekStart(startDate, 0).getTime()) / (7 * 86400000))
+  // Calendar days in Poland: a week begins at midnight there, wherever this code runs.
+  return Math.floor(dateDiff(startDate, appDate(now)) / 7)
 }
 
 export const newId = () => crypto.randomUUID()

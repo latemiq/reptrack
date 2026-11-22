@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
-import { mondayOf } from '@/lib/gym-stats'
+import { appDate, appMonday } from '@/lib/app-time'
 import { SECONDARY_SET_WEIGHT, exerciseMuscles, type MuscleGroup } from '@/lib/exercises/muscles'
 
-const DAY = 86400000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 interface MuscleWeek {
@@ -21,8 +20,9 @@ export async function GET(req: Request) {
   if (!userId) return unauthorized()
 
   const offset = Math.min(0, Math.max(-52, Math.trunc(Number(new URL(req.url).searchParams.get('week') ?? 0)) || 0))
-  const from = new Date(mondayOf(new Date()).getTime() + offset * 7 * DAY)
-  const to = new Date(from.getTime() + 7 * DAY)
+  const now = new Date()
+  const from = appMonday(now, offset)
+  const to = appMonday(now, offset + 1)
 
   const supabase = supabaseAdmin()
   const { data: workouts, error } = await supabase.from('workouts')
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json({
-    weekStart: `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, '0')}-${String(from.getDate()).padStart(2, '0')}`,
+    weekStart: appDate(from),
     workouts: workouts?.length ?? 0,
     totalSets: Array.from(perExercise.values()).reduce((s, e) => s + e.sets, 0),
     groups,

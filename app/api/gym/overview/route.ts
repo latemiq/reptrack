@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
-import { findPrs, mondayOf, weekdayIndex, type StatWorkout } from '@/lib/gym-stats'
+import { appDate, appMonday, appWeekday } from '@/lib/app-time'
+import { findPrs, type StatWorkout } from '@/lib/gym-stats'
 import { MACRO_TREE_SELECT, currentWeekIndex, macroFromRow, type MacroDbRow, type PlannedExercise } from '@/lib/plans'
 
 const DAY = 86400000
@@ -13,7 +14,7 @@ export async function GET() {
 
   const supabase = supabaseAdmin()
   const now = new Date()
-  const monday = mondayOf(now)
+  const monday = appMonday(now)
   const since = new Date(monday.getTime() - 12 * 7 * DAY) // enough history to judge PRs
 
   const [{ data: workouts, error }, { data: profile }, { data: plans }] = await Promise.all([
@@ -22,7 +23,7 @@ export async function GET() {
       .eq('user_id', userId).not('finished_at', 'is', null).gte('started_at', since.toISOString())
       .order('started_at', { ascending: false }),
     supabase.from('profiles').select('weekly_days').eq('id', userId).maybeSingle(),
-    supabase.from('macrocycles').select(MACRO_TREE_SELECT).eq('client_id', userId).lte('start_date', now.toISOString().slice(0, 10)),
+    supabase.from('macrocycles').select(MACRO_TREE_SELECT).eq('client_id', userId).lte('start_date', appDate(now)),
   ])
 
   if (error) {
@@ -31,17 +32,17 @@ export async function GET() {
   }
 
   const list = (workouts ?? []) as unknown as StatWorkout[]
-  const lastMonday = new Date(monday.getTime() - 7 * DAY)
+  const lastMonday = appMonday(now, -1)
   const inRange = (w: StatWorkout, from: Date, to: Date) => {
     const t = new Date(w.started_at).getTime()
     return t >= from.getTime() && t < to.getTime()
   }
-  const thisWeek = list.filter(w => inRange(w, monday, new Date(monday.getTime() + 7 * DAY)))
+  const thisWeek = list.filter(w => inRange(w, monday, appMonday(now, 1)))
   const prevWeek = list.filter(w => inRange(w, lastMonday, monday))
   const tonnage = (ws: StatWorkout[]) => Math.round(ws.reduce((s, w) => s + Number(w.total_tonnage ?? 0), 0))
 
   const days = Array.from({ length: 7 }, () => false)
-  for (const w of thisWeek) days[weekdayIndex(new Date(w.started_at))] = true
+  for (const w of thisWeek) days[appWeekday(new Date(w.started_at))] = true
 
   // Today's session from an active trainer plan (1 = Monday in the plan model).
   let planToday: { planName: string; name: string; notes: string; exercises: PlannedExercise[] } | null = null
@@ -49,7 +50,7 @@ export async function GET() {
     const plan = macroFromRow(row)
     const idx = currentWeekIndex(plan.startDate, now.getTime())
     const week = plan.mesocycles.flatMap(m => m.microcycles)[idx]
-    const session = week?.sessions.find(s => s.dayOfWeek === weekdayIndex(now) + 1)
+    const session = week?.sessions.find(s => s.dayOfWeek === appWeekday(now) + 1)
     if (session) { planToday = { planName: plan.name, name: session.name, notes: session.notes, exercises: session.exercises }; break }
   }
 
@@ -59,7 +60,7 @@ export async function GET() {
     .slice(0, 3)
 
   return NextResponse.json({
-    week: { days, today: weekdayIndex(now), done: thisWeek.length, goal: profile?.weekly_days ?? null },
+    week: { days, today: appWeekday(now), done: thisWeek.length, goal: profile?.weekly_days ?? null },
     tonnage: { thisWeek: tonnage(thisWeek), lastWeek: tonnage(prevWeek) },
     recentPrs,
     planToday,

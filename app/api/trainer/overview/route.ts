@@ -2,17 +2,11 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
 import { forbidden, getActiveClients, getRole } from '@/lib/trainer'
+import { appMonday } from '@/lib/app-time'
 import { currentWeekIndex, type Focus } from '@/lib/plans'
 
 const WEEKS = 8
 const DAY = 86400000
-
-function mondayOf(d: Date) {
-  const m = new Date(d)
-  m.setHours(0, 0, 0, 0)
-  m.setDate(m.getDate() - ((m.getDay() + 6) % 7))
-  return m
-}
 
 interface WorkoutRow {
   id: string
@@ -50,8 +44,9 @@ export async function GET() {
   const clients = await getActiveClients(userId)
   const ids = clients.map(c => c.id)
 
-  const thisMonday = mondayOf(new Date())
-  const since = new Date(thisMonday.getTime() - (WEEKS - 1) * 7 * DAY)
+  const today = new Date()
+  const thisMonday = appMonday(today)
+  const since = appMonday(today, 1 - WEEKS)
 
   const [{ count: pendingInvites }, workoutsRes, plansRes, lastRes] = await Promise.all([
     supabase.from('coach_clients').select('id', { count: 'exact', head: true })
@@ -85,8 +80,8 @@ export async function GET() {
 
   // Weekly series, oldest → newest.
   const weekly = Array.from({ length: WEEKS }, (_, i) => {
-    const start = new Date(since.getTime() + i * 7 * DAY)
-    const end = start.getTime() + 7 * DAY
+    const start = appMonday(today, i + 1 - WEEKS)
+    const end = appMonday(today, i + 2 - WEEKS).getTime()
     const inWeek = workouts.filter(w => {
       const t = new Date(w.started_at).getTime()
       return t >= start.getTime() && t < end
