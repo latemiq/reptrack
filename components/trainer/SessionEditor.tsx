@@ -2,6 +2,8 @@
 
 import { Fragment, useState } from 'react'
 import ExercisePicker from '@/components/gym/ExercisePicker'
+import SupersetToggle from '@/components/gym/SupersetToggle'
+import WarmupEditor from '@/components/gym/WarmupEditor'
 import { DAY_LABELS, moveKeepingSupersets, removeKeepingSupersets, supersetLabels, type PlannedExercise, type PlannedSession } from '@/lib/plans'
 
 interface Props {
@@ -20,6 +22,7 @@ const num = (v: string) => (v === '' ? null : Number(v))
 
 export default function SessionEditor({ session, weekLabel, remainingWeeks, onChange, onDelete, onDuplicate, onPropagate, onClose }: Props) {
   const [step, setStep] = useState('2.5')
+  const [asSuperset, setAsSuperset] = useState(false)
 
   const patch = (p: Partial<PlannedSession>) => onChange({ ...session, ...p })
   const patchEx = (idx: number, p: Partial<PlannedExercise>) =>
@@ -54,6 +57,8 @@ export default function SessionEditor({ session, weekLabel, remainingWeeks, onCh
                 }`}>{d}</button>
             ))}
           </div>
+
+          <WarmupEditor value={session.warmup ?? []} onChange={warmup => patch({ warmup })} />
 
           <div>
             <div className="hidden md:grid grid-cols-[1fr_44px_44px_44px_56px_52px_44px_56px_54px] gap-1.5 px-2 mb-1.5">
@@ -108,19 +113,24 @@ export default function SessionEditor({ session, weekLabel, remainingWeeks, onCh
               ))}
             </div>
 
-            <div className="mt-2">
-              <ExercisePicker accent="#c8f53a" onPick={ex => patch({
-                exercises: [...session.exercises, {
-                  exerciseId: ex.id, name: ex.name, sets: 3, repsMin: 8, repsMax: 10,
-                  weightKg: null, percent1rm: null, rpe: null, restSeconds: 120, notes: '',
-                }],
-              })} />
+            <div className="mt-2 space-y-2">
+              <SupersetToggle partner={session.exercises[session.exercises.length - 1]?.name} checked={asSuperset} onChange={setAsSuperset} />
+              <ExercisePicker accent="#c8f53a" onPick={ex => {
+                const partner = asSuperset ? session.exercises[session.exercises.length - 1] : undefined
+                patch({
+                  exercises: [...session.exercises, {
+                    exerciseId: ex.id, name: ex.name, sets: partner?.sets ?? 3, repsMin: 8, repsMax: 10,
+                    weightKg: null, percent1rm: null, rpe: null, restSeconds: partner?.restSeconds ?? 120, notes: '', superset: !!partner,
+                  }],
+                })
+                setAsSuperset(false)
+              }} />
             </div>
           </div>
 
           <div>
             <label className="block text-[10px] font-mono uppercase tracking-[2px] text-[#555] mb-2">Uwagi do sesji</label>
-            <textarea rows={2} value={session.notes} onChange={e => patch({ notes: e.target.value })} placeholder="Rozgrzewka, cel sesji…"
+            <textarea rows={2} value={session.notes} onChange={e => patch({ notes: e.target.value })} placeholder="Cel sesji, na co uważać…"
               className={`${field} w-full text-[13px] px-3 py-2 resize-none`} />
           </div>
 

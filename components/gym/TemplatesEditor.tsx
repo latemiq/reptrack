@@ -8,11 +8,15 @@ import { fmtKg } from '@/lib/gym-stats'
 import { moveKeepingSupersets, removeKeepingSupersets, supersetLabels } from '@/lib/plans'
 import ExercisePicker from '@/components/gym/ExercisePicker'
 import GymTabs from '@/components/gym/GymTabs'
+import SupersetToggle from '@/components/gym/SupersetToggle'
+import WarmupEditor from '@/components/gym/WarmupEditor'
+import type { WarmupItem } from '@/lib/warmup'
 
 interface Draft {
   id: string | null
   name: string
   exercises: TemplateExercise[]
+  warmup: WarmupItem[]
 }
 
 const REST_OPTIONS = [0, 30, 45, 60, 90, 120, 150, 180, 240, 300]
@@ -43,6 +47,7 @@ export default function TemplatesEditor() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [openIdx, setOpenIdx] = useState<number | null>(0)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [asSuperset, setAsSuperset] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -59,8 +64,8 @@ export default function TemplatesEditor() {
     if (!templates || draft) return
     const editId = params.get('edit')
     const t = editId ? templates.find(x => x.id === editId) : null
-    if (t) { setDraft({ id: t.id, name: t.name, exercises: t.exercises }); setOpenIdx(null) }
-    else if (params.get('new')) { setDraft({ id: null, name: '', exercises: [] }); setOpenIdx(null) }
+    if (t) { setDraft({ id: t.id, name: t.name, exercises: t.exercises, warmup: t.warmup ?? [] }); setOpenIdx(null) }
+    else if (params.get('new')) { setDraft({ id: null, name: '', exercises: [], warmup: [] }); setOpenIdx(null) }
   }, [templates, params, draft])
 
   const close = () => { setDraft(null); setError(''); router.replace('/gym/templates') }
@@ -79,7 +84,7 @@ export default function TemplatesEditor() {
     const res = await fetch(draft.id ? `/api/gym/templates/${draft.id}` : '/api/gym/templates', {
       method: draft.id ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: draft.name, exercises: draft.exercises }),
+      body: JSON.stringify({ name: draft.name, exercises: draft.exercises, warmup: draft.warmup }),
     }).catch(() => null)
     setSaving(false)
     if (!res?.ok) { setError((await res?.json().catch(() => null))?.error ?? 'Zapis nie powiódł się.'); return }
@@ -118,6 +123,8 @@ export default function TemplatesEditor() {
           </p>
 
           {error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-[12px] text-red-400">{error}</div>}
+
+          <WarmupEditor value={draft.warmup} onChange={warmup => setDraft(d => d && { ...d, warmup })} />
 
           <div>
             {draft.exercises.map((ex, i) => {
@@ -186,9 +193,18 @@ export default function TemplatesEditor() {
             })}
           </div>
 
-          <div className="rounded-2xl border border-dashed border-[#2a2a2a] p-3">
+          <div className="rounded-2xl border border-dashed border-[#2a2a2a] p-3 space-y-2">
+            <SupersetToggle partner={draft.exercises[draft.exercises.length - 1]?.name} checked={asSuperset} onChange={setAsSuperset} />
             <ExercisePicker accent="#c8f53a" showGroups onPick={pick => {
-              setDraft(d => d && { ...d, exercises: [...d.exercises, { exerciseId: pick.id, name: pick.name, targetSets: 3, targetReps: 8, targetRepsMax: 10, targetWeight: null, restSeconds: 120 }] })
+              setDraft(d => {
+                if (!d) return d
+                const partner = asSuperset ? d.exercises[d.exercises.length - 1] : undefined
+                return { ...d, exercises: [...d.exercises, {
+                  exerciseId: pick.id, name: pick.name, targetSets: partner?.targetSets ?? 3, targetReps: 8, targetRepsMax: 10, targetWeight: null,
+                  restSeconds: partner?.restSeconds ?? 120, superset: !!partner,
+                }] }
+              })
+              setAsSuperset(false)
               setOpenIdx(draft.exercises.length)
             }} />
           </div>
@@ -211,7 +227,7 @@ export default function TemplatesEditor() {
             <p className="text-[11px] font-mono text-[#666] uppercase tracking-[1.5px]">Siłownia</p>
             <h1 className="font-display text-[24px] font-black leading-tight">Szablony</h1>
           </div>
-          <button onClick={() => { setDraft({ id: null, name: '', exercises: [] }); setOpenIdx(null) }}
+          <button onClick={() => { setDraft({ id: null, name: '', exercises: [], warmup: [] }); setOpenIdx(null) }}
             className="px-4 py-2 rounded-xl bg-[#c8f53a] text-[#0f1a00] text-[13px] font-medium cursor-pointer">+ Nowy</button>
         </div>
 
@@ -221,7 +237,7 @@ export default function TemplatesEditor() {
           {templates === null && [0, 1, 2].map(i => <div key={i} className="h-[76px] rounded-2xl bg-[#0f0f0f] border border-[#1a1a1a] animate-pulse" />)}
           {templates?.length === 0 && !error && <p className="text-center py-10 text-[13px] text-[#555]">Nie masz jeszcze szablonów.</p>}
           {templates?.map(t => (
-            <button key={t.id} onClick={() => { setDraft({ id: t.id, name: t.name, exercises: t.exercises }); setOpenIdx(null) }}
+            <button key={t.id} onClick={() => { setDraft({ id: t.id, name: t.name, exercises: t.exercises, warmup: t.warmup ?? [] }); setOpenIdx(null) }}
               className="w-full text-left rounded-2xl bg-[#111] border border-[#1e1e1e] hover:border-[#2a2a2a] px-4 py-3 cursor-pointer">
               <div className="flex items-baseline gap-2">
                 <span className="flex-1 min-w-0 truncate text-[15px] font-medium">{t.name}</span>

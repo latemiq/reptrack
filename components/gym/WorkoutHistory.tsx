@@ -5,9 +5,12 @@ import { fmtKg, fmtTonnes, findPrs, mondayOf, setsSummary, weekdayIndex, type St
 import GymTabs from '@/components/gym/GymTabs'
 import WorkoutComments from '@/components/gym/WorkoutComments'
 import type { WorkoutComment } from '@/app/api/gym/comments/route'
+import { warmupLabel, type WarmupItem } from '@/lib/warmup'
 
 interface WorkoutRow extends StatWorkout {
   notes: string | null
+  /** Done warm-up; not part of sets, tonnage or records. */
+  warmup?: WarmupItem[]
   workout_sets: (StatSet & { rpe: number | string | null })[]
 }
 
@@ -219,6 +222,12 @@ export default function WorkoutHistory({ endpoint = '/api/gym/workouts?limit=100
 
                   {open && (
                     <div className="px-4 pb-3 space-y-2.5">
+                      {!!w.warmup?.length && (
+                        <div className="rounded-lg border border-[#f5a03a]/20 px-3 py-2">
+                          <p className="text-[10px] font-mono uppercase tracking-[1.5px] text-[#f5a03a] mb-0.5">Rozgrzewka</p>
+                          {w.warmup.map((x, i) => <p key={i} className="text-[12px] text-[#aaa]">{warmupLabel(x)}</p>)}
+                        </div>
+                      )}
                       {groups.length === 0 && <p className="text-[12px] text-[#555]">Brak zapisanych serii.</p>}
                       {groups.map(g => {
                         const isPr = prSet.has(`${w.id}:${g.id}`)

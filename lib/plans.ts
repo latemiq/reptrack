@@ -2,6 +2,7 @@
 // Tree: Macrocycle → Mesocycle (block) → Microcycle (week) → PlannedSession → PlannedExercise.
 
 import { appDate, dateDiff } from './app-time'
+import { sanitizeWarmup, type WarmupItem } from './warmup'
 
 export type Focus = 'hypertrophy' | 'strength' | 'power' | 'endurance' | 'deload' | 'other'
 
@@ -38,6 +39,8 @@ export interface PlannedSession {
   dayOfWeek: number // 1 = Monday … 7 = Sunday
   name: string
   notes: string
+  /** Warm-up before the session (not counted in stats). */
+  warmup?: WarmupItem[]
   exercises: PlannedExercise[]
 }
 
@@ -118,7 +121,7 @@ export const emptyMesocycle = (name: string, weeks = 4, focus: Focus | null = 'h
 
 /** Deep copy with fresh IDs — used for "duplicate week/session/block". */
 export function cloneSession(s: PlannedSession): PlannedSession {
-  return { ...s, id: newId(), exercises: s.exercises.map(e => ({ ...e })) }
+  return { ...s, id: newId(), warmup: s.warmup?.map(w => ({ ...w })), exercises: s.exercises.map(e => ({ ...e })) }
 }
 export function cloneWeek(w: Microcycle): Microcycle {
   return { id: newId(), notes: w.notes, sessions: w.sessions.map(cloneSession) }
@@ -303,7 +306,7 @@ export function sanitizeMacrocycle(input: unknown): { plan: Omit<Macrocycle, 'id
             superset: outEx.length > 0 && e.superset === true,
           })
         }
-        outSessions.push({ id: sId, dayOfWeek: day, name: str(s.name, 120) || 'Trening', notes: str(s.notes, 1000), exercises: outEx })
+        outSessions.push({ id: sId, dayOfWeek: day, name: str(s.name, 120) || 'Trening', notes: str(s.notes, 1000), warmup: sanitizeWarmup(s.warmup, false), exercises: outEx })
       }
       microcycles.push({ id: wId, notes: str(w.notes, 1000), sessions: outSessions })
     }
@@ -327,7 +330,7 @@ interface ExerciseDbRow {
   percent_1rm: number | string | null; rpe: number | string | null; rest_seconds: number | null; notes: string | null
   superset: boolean | null
 }
-interface SessionDbRow { id: string; position: number; day_of_week: number; name: string; notes: string | null; planned_exercises: ExerciseDbRow[] }
+interface SessionDbRow { id: string; position: number; day_of_week: number; name: string; notes: string | null; warmup?: unknown; planned_exercises: ExerciseDbRow[] }
 interface MicroDbRow { id: string; position: number; notes: string | null; planned_sessions: SessionDbRow[] }
 interface MesoDbRow { id: string; position: number; name: string; focus: Focus | null; notes: string | null; microcycles: MicroDbRow[] }
 export interface MacroDbRow {
@@ -339,7 +342,7 @@ const byPos = <T extends { position: number }>(a: T[] | null | undefined) => [..
 const numOrNull = (v: number | string | null) => (v == null ? null : Number(v))
 
 export const MACRO_TREE_SELECT =
-  'id, client_id, name, goal, start_date, notes, mesocycles(id, position, name, focus, notes, microcycles(id, position, notes, planned_sessions(id, position, day_of_week, name, notes, planned_exercises(position, exercise_id, exercise_name, sets, reps_min, reps_max, weight_kg, percent_1rm, rpe, rest_seconds, notes, superset))))'
+  'id, client_id, name, goal, start_date, notes, mesocycles(id, position, name, focus, notes, microcycles(id, position, notes, planned_sessions(id, position, day_of_week, name, notes, warmup, planned_exercises(position, exercise_id, exercise_name, sets, reps_min, reps_max, weight_kg, percent_1rm, rpe, rest_seconds, notes, superset))))'
 
 export function macroFromRow(r: MacroDbRow): Macrocycle {
   return {
@@ -364,6 +367,7 @@ export function macroFromRow(r: MacroDbRow): Macrocycle {
             dayOfWeek: s.day_of_week,
             name: s.name,
             notes: s.notes ?? '',
+            warmup: sanitizeWarmup(s.warmup, false),
             exercises: byPos(s.planned_exercises).map(e => ({
               exerciseId: e.exercise_id,
               name: e.exercise_name,

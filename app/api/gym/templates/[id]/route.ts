@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
 import { sanitizeTemplateExercises } from '@/lib/templates'
+import { sanitizeWarmup } from '@/lib/warmup'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await getUserId()
@@ -23,6 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!exercises) return NextResponse.json({ error: 'Nieprawidłowa lista ćwiczeń' }, { status: 400 })
     updates.exercises = exercises
   }
+  if ('warmup' in body) updates.warmup = sanitizeWarmup(body.warmup, false)
 
   const { error } = await supabaseAdmin()
     .from('workout_templates')

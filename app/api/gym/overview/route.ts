@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
 import { appDate, appMonday, appWeekday } from '@/lib/app-time'
 import { findPrs, type StatWorkout } from '@/lib/gym-stats'
+import type { WarmupItem } from '@/lib/warmup'
 import { MACRO_TREE_SELECT, currentWeekIndex, macroFromRow, type MacroDbRow, type PlannedExercise } from '@/lib/plans'
 
 const DAY = 86400000
@@ -45,13 +46,13 @@ export async function GET() {
   for (const w of thisWeek) days[appWeekday(new Date(w.started_at))] = true
 
   // Today's session from an active trainer plan (1 = Monday in the plan model).
-  let planToday: { planName: string; name: string; notes: string; exercises: PlannedExercise[] } | null = null
+  let planToday: { planName: string; name: string; notes: string; warmup: WarmupItem[]; exercises: PlannedExercise[] } | null = null
   for (const row of (plans ?? []) as unknown as MacroDbRow[]) {
     const plan = macroFromRow(row)
     const idx = currentWeekIndex(plan.startDate, now.getTime())
     const week = plan.mesocycles.flatMap(m => m.microcycles)[idx]
     const session = week?.sessions.find(s => s.dayOfWeek === appWeekday(now) + 1)
-    if (session) { planToday = { planName: plan.name, name: session.name, notes: session.notes, exercises: session.exercises }; break }
+    if (session) { planToday = { planName: plan.name, name: session.name, notes: session.notes, warmup: session.warmup ?? [], exercises: session.exercises }; break }
   }
 
   const recentPrs = findPrs(list)

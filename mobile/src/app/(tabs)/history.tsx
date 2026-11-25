@@ -5,8 +5,9 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInp
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ErrorBox, Kicker, Loading } from '@/components/ui'
 import { useApi } from '@/lib/api'
-import { findPrs, fmtKg, fmtTonnes, mondayOf, timeAgo, type StatSet, type StatWorkout } from '@/lib/gym'
+import { findPrs, fmtKg, fmtTonnes, mondayOf, timeAgo, type StatSet, type StatWorkout, type TemplateExercise } from '@/lib/gym'
 import { C, R } from '@/lib/theme'
+import { warmupLabel } from '@/lib/warmup'
 
 interface Comment {
   id: string
@@ -36,6 +37,65 @@ function groupSets(sets: StatSet[]) {
     groups.set(s.exercise_position, g)
   }
   return Array.from(groups.values())
+}
+
+/** A finished workout as template exercises: same sets, the most common reps, the heaviest weight. */
+function templateFromWorkout(w: StatWorkout): TemplateExercise[] {
+  return groupSets(w.workout_sets ?? []).map(g => {
+    const reps = g.sets.map(s => s.reps ?? 0).filter(Boolean)
+    const counts = new Map<number, number>()
+    for (const r of reps) counts.set(r, (counts.get(r) ?? 0) + 1)
+    const commonReps = Array.from(counts).sort((a, b) => b[1] - a[1] || b[0] - a[0])[0]?.[0] ?? 8
+    const top = Math.max(0, ...g.sets.map(s => Number(s.weight_kg ?? 0)))
+    return { exerciseId: g.id, name: g.name, targetSets: g.sets.length, targetReps: commonReps, targetWeight: top || null, restSeconds: 120 }
+  })
+}
+
+/** "Zapisz jako szablon": a name field, then the workout becomes a template on the gym screen. */
+function SaveAsTemplate({ workout }: { workout: StatWorkout }) {
+  const api = useApi()
+  const [name, setName] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const save = async () => {
+    const clean = name?.trim()
+    if (!clean) { setMessage({ ok: false, text: 'Wpisz nazwę szablonu.' }); return }
+    setBusy(true)
+    setMessage(null)
+    try {
+      const warmup = (workout.warmup ?? []).map(({ done: _done, ...w }) => w)
+      await api('/api/gym/templates', { method: 'POST', body: JSON.stringify({ name: clean, exercises: templateFromWorkout(workout), warmup }) })
+      setName(null)
+      setMessage({ ok: true, text: `Zapisano szablon „${clean}”. Znajdziesz go na ekranie Trening.` })
+    } catch (e) {
+      setMessage({ ok: false, text: e instanceof Error ? e.message : 'Nie udało się zapisać szablonu.' })
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      {name === null ? (
+        <Pressable onPress={() => { setName(workout.name); setMessage(null) }} style={({ pressed }) => [st.tplBtn, pressed && { opacity: 0.6 }]}>
+          <Ionicons name="copy-outline" size={16} color={C.lime} />
+          <Text style={{ color: C.lime, fontSize: 14 }}>Zapisz jako szablon</Text>
+        </Pressable>
+      ) : (
+        <View style={{ gap: 8 }}>
+          <TextInput value={name} onChangeText={setName} autoFocus placeholder="Nazwa szablonu" placeholderTextColor={C.textDim}
+            maxLength={80} onSubmitEditing={save} returnKeyType="done" style={[st.input, { flex: 0 }]} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable onPress={save} disabled={busy} style={[st.tplSave, busy && { opacity: 0.5 }]}>
+              <Text style={{ color: C.limeDark, fontWeight: '700' }}>{busy ? 'Zapisuję…' : 'Zapisz szablon'}</Text>
+            </Pressable>
+            <Pressable onPress={() => setName(null)} style={st.tplCancel}><Text style={{ color: C.textDim }}>Anuluj</Text></Pressable>
+          </View>
+          <Text style={{ color: C.muted, fontSize: 12 }}>Te same ćwiczenia i liczba serii; powtórzenia i ciężar z tego treningu.</Text>
+        </View>
+      )}
+      {!!message && <Text style={{ color: message.ok ? C.lime : C.danger, fontSize: 13 }}>{message.text}</Text>}
+    </View>
+  )
 }
 
 function Comments({ workoutId, comments, onChange }: { workoutId: string; comments: Comment[]; onChange: () => void }) {
@@ -190,6 +250,14 @@ export default function History() {
                   </Pressable>
                   {open && (
                     <View style={{ marginTop: 10, gap: 10 }}>
+                      {!!w.warmup?.length && (
+                        <View style={st.warmup}>
+                          <Text style={{ color: C.orange, fontSize: 11, letterSpacing: 1.5, fontFamily: 'monospace' }}>ROZGRZEWKA</Text>
+                          {w.warmup.map((x, i) => (
+                            <Text key={i} style={{ color: C.textDim, fontSize: 13 }}>{warmupLabel(x)}</Text>
+                          ))}
+                        </View>
+                      )}
                       {groups.map(g => (
                         <View key={`${g.id}-${g.sets[0]?.exercise_position}`}>
                           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -205,6 +273,7 @@ export default function History() {
                           </View>
                         </View>
                       ))}
+                      {groups.length > 0 && <SaveAsTemplate workout={w} />}
                       {available && <Comments workoutId={w.id} comments={comments[w.id] ?? []} onChange={() => loadComments(workouts ?? [])} />}
                     </View>
                   )}
@@ -225,5 +294,9 @@ const st = StyleSheet.create({
   chip: { color: '#aaa', fontSize: 12, fontFamily: 'monospace', backgroundColor: C.field, borderColor: C.cardBorder, borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' },
   comment: { backgroundColor: C.field, borderColor: C.cardBorder, borderWidth: 1, borderRadius: R.md, padding: 10 },
   input: { flex: 1, backgroundColor: C.field, borderColor: C.fieldBorder, borderWidth: 1, borderRadius: R.md, color: C.text, fontSize: 14, paddingHorizontal: 12, paddingVertical: 10, maxHeight: 120 },
+  warmup: { borderWidth: 1, borderColor: 'rgba(245,160,58,0.25)', borderRadius: R.md, padding: 10, gap: 2 },
+  tplBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: C.limeLine, borderRadius: R.md, paddingVertical: 10 },
+  tplSave: { flex: 1, backgroundColor: C.lime, borderRadius: R.md, paddingVertical: 11, alignItems: 'center' },
+  tplCancel: { paddingHorizontal: 16, borderRadius: R.md, borderWidth: 1, borderColor: C.fieldBorder, justifyContent: 'center' },
   send: { width: 44, height: 44, borderRadius: R.md, backgroundColor: C.lime, alignItems: 'center', justifyContent: 'center' },
 })

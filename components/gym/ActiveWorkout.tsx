@@ -8,6 +8,7 @@ import { fetchPrevious } from '@/lib/start-workout'
 import { fmtKg, fmtTonnes } from '@/lib/gym-stats'
 import { supersetLabels } from '@/lib/plans'
 import ExercisePicker from '@/components/gym/ExercisePicker'
+import SupersetToggle from '@/components/gym/SupersetToggle'
 
 const fmtTime = (totalSec: number) => {
   const h = Math.floor(totalSec / 3600)
@@ -228,6 +229,7 @@ export default function ActiveWorkout() {
   const [elapsed, setElapsed] = useState(0)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
+  const [asSuperset, setAsSuperset] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -258,9 +260,16 @@ export default function ActiveWorkout() {
 
   const addFromPicker = async (pick: { id: string; name: string }) => {
     setPicking(false)
+    // In a superset both exercises run the same number of rounds.
+    const partner = asSuperset ? activeWorkout.exercises[activeWorkout.exercises.length - 1] : undefined
+    setAsSuperset(false)
     const previous = (await fetchPrevious([pick.id]))[pick.id]
     const id = crypto.randomUUID()
-    addExercise({ id, exerciseId: pick.id, name: pick.name, targetSets: previous?.length || 3, targetReps: previous?.[0]?.reps ?? 8, targetWeight: null, restSeconds: 120, previous })
+    addExercise({
+      id, exerciseId: pick.id, name: pick.name, previous, superset: !!partner,
+      targetSets: partner?.sets.length ?? (previous?.length || 3), targetReps: previous?.[0]?.reps ?? 8, targetWeight: null,
+      restSeconds: partner?.restSeconds ?? 120,
+    })
     setExpandedId(id)
   }
 
@@ -340,6 +349,7 @@ export default function ActiveWorkout() {
 
           {picking ? (
             <div className="rounded-2xl bg-[#111] border border-[#1e1e1e] p-3 space-y-2">
+              <SupersetToggle partner={activeWorkout.exercises[activeWorkout.exercises.length - 1]?.name} checked={asSuperset} onChange={setAsSuperset} />
               <ExercisePicker accent="#c8f53a" onPick={addFromPicker} />
               <button onClick={() => setPicking(false)} className="w-full py-1.5 text-[12px] text-[#666] cursor-pointer">Anuluj</button>
             </div>

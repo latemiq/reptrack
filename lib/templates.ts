@@ -1,3 +1,5 @@
+import type { WarmupItem } from '@/lib/warmup'
+
 export interface TemplateExercise {
   exerciseId: string
   name: string
@@ -15,6 +17,8 @@ export interface WorkoutTemplate {
   id: string
   name: string
   exercises: TemplateExercise[]
+  /** Warm-up loaded into the workout at start (not counted in stats). */
+  warmup?: WarmupItem[]
   last_used_at: string | null
   created_at: string
 }

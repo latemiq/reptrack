@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ExercisePicker } from '@/components/ExercisePicker'
+import { WarmupSection } from '@/components/WarmupSection'
 import { Btn, ErrorBox } from '@/components/ui'
 import { useApi } from '@/lib/api'
 import { fmtKg, fmtTonnes, supersetLabels, supersetNext } from '@/lib/gym'
@@ -257,6 +258,8 @@ export default function WorkoutScreen() {
       await api('/api/gym/workouts', { method: 'POST', body: JSON.stringify({
         templateId: workout.templateId, name: workout.name, startedAt: workout.startedAt,
         exercises: workout.exercises.map(e => ({ exerciseId: e.exerciseId, name: e.name, sets: e.sets })),
+        // Only what was ticked off; planned but skipped warm-up isn't history.
+        warmup: (workout.warmup ?? []).filter(w => w.done),
       }) })
       cancelRestEnd(rest?.notificationId)
       finish()
@@ -314,6 +317,7 @@ export default function WorkoutScreen() {
               <Text style={{ color: '#d8e8b0', fontSize: 14 }}>{workout.trainerNote}</Text>
             </View>
           )}
+          <WarmupSection />
           {workout.exercises.length === 0 && !picking && (
             <Text style={{ color: C.muted, textAlign: 'center', paddingVertical: 24 }}>Pusty trening — dodaj pierwsze ćwiczenie.</Text>
           )}

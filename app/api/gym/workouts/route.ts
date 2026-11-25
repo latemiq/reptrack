@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
+import { sanitizeWarmup } from '@/lib/warmup'
 
 interface IncomingSet {
   weightKg: number | null
@@ -22,6 +23,7 @@ interface IncomingWorkout {
   notes?: string
   startedAt: number
   exercises: IncomingExercise[]
+  warmup?: unknown
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin()
     .from('workouts')
-    .select('id, template_id, name, notes, started_at, finished_at, duration_seconds, total_tonnage, workout_sets(exercise_id, exercise_name, exercise_position, set_number, reps, weight_kg, rpe)')
+    .select('id, template_id, name, notes, started_at, finished_at, duration_seconds, total_tonnage, warmup, workout_sets(exercise_id, exercise_name, exercise_position, set_number, reps, weight_kg, rpe)')
     .eq('user_id', userId)
     .not('finished_at', 'is', null)
     .order('started_at', { ascending: false })
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Pusty trening — zalicz przynajmniej jedną serię, żeby go zapisać' }, { status: 400 })
   }
 
+  const warmup = sanitizeWarmup(workout.warmup)
   const durationSeconds = Math.floor((finishedAt - workout.startedAt) / 1000)
 
   const tonnage = workout.exercises.reduce((sum, ex) =>
@@ -93,6 +96,8 @@ export async function POST(req: NextRequest) {
       finished_at: new Date(finishedAt).toISOString(),
       duration_seconds: durationSeconds,
       total_tonnage: tonnage,
+      // Only when there is one, so saving keeps working on a database without the column.
+      ...(warmup.length ? { warmup } : {}),
     })
     .select('id')
     .single()

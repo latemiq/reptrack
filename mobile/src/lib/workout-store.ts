@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import { removeKeepingSupersets } from '@/lib/gym'
+import type { WarmupItem } from '@/lib/warmup'
 
 // The live workout lives on the phone until it's finished and sent to the server,
 // so closing the app or losing signal mid-session never loses logged sets.
@@ -41,6 +42,8 @@ export interface ActiveWorkout {
   templateId: string | null
   startedAt: number
   trainerNote?: string
+  /** Warm-up before the main work; saved with the workout but never counted in stats. */
+  warmup?: WarmupItem[]
   exercises: ExerciseEntry[]
 }
 
@@ -65,7 +68,10 @@ function plannedSets(ex: Omit<ExerciseEntry, 'sets'>): SetEntry[] {
 interface Store {
   workout: ActiveWorkout | null
   rest: RestTimer | null
-  start: (name: string, exercises: Omit<ExerciseEntry, 'id' | 'sets'>[], templateId?: string, trainerNote?: string) => void
+  start: (name: string, exercises: Omit<ExerciseEntry, 'id' | 'sets'>[], templateId?: string, trainerNote?: string, warmup?: WarmupItem[]) => void
+  addWarmup: (item: WarmupItem) => void
+  updateWarmup: (index: number, patch: Partial<WarmupItem>) => void
+  removeWarmup: (index: number) => void
   finish: () => void
   addExercise: (ex: Omit<ExerciseEntry, 'id' | 'sets'>) => string
   removeExercise: (id: string) => void
@@ -81,10 +87,11 @@ export const useWorkout = create<Store>()(persist((set, get) => ({
   workout: null,
   rest: null,
 
-  start: (name, exercises, templateId, trainerNote) => set({
+  start: (name, exercises, templateId, trainerNote, warmup) => set({
     rest: null,
     workout: {
       id: newId(), name, templateId: templateId ?? null, startedAt: Date.now(), trainerNote: trainerNote || undefined,
+      warmup: (warmup ?? []).map(w => ({ ...w, done: false })),
       exercises: exercises.map(e => { const ex = { ...e, id: newId() }; return { ...ex, sets: plannedSets(ex) } }),
     },
   }),
@@ -128,6 +135,21 @@ export const useWorkout = create<Store>()(persist((set, get) => ({
     const w = get().workout
     if (!w) return
     set({ workout: { ...w, exercises: w.exercises.map(e => e.id !== exId || e.sets.length < 2 ? e : { ...e, sets: e.sets.slice(0, -1) }) } })
+  },
+
+  addWarmup: item => {
+    const w = get().workout
+    if (w) set({ workout: { ...w, warmup: [...(w.warmup ?? []), item] } })
+  },
+
+  updateWarmup: (index, patch) => {
+    const w = get().workout
+    if (w) set({ workout: { ...w, warmup: (w.warmup ?? []).map((x, i) => (i === index ? { ...x, ...patch } as WarmupItem : x)) } })
+  },
+
+  removeWarmup: index => {
+    const w = get().workout
+    if (w) set({ workout: { ...w, warmup: (w.warmup ?? []).filter((_, i) => i !== index) } })
   },
 
   setRest: rest => set({ rest }),

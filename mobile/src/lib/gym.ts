@@ -1,3 +1,5 @@
+import type { WarmupItem } from '@/lib/warmup'
+
 // Gym data types and helpers — mirrors the web app's lib/gym-stats.ts and lib/plans.ts,
 // so both clients compute weeks, PRs and prescriptions the same way.
 
@@ -18,6 +20,8 @@ export interface StatWorkout {
   started_at: string
   duration_seconds: number | null
   total_tonnage: number | string | null
+  /** Warm-up done before the workout; not part of sets, tonnage or records. */
+  warmup?: WarmupItem[]
   workout_sets: StatSet[]
 }
 
@@ -51,6 +55,7 @@ export interface WorkoutTemplate {
   id: string
   name: string
   exercises: TemplateExercise[]
+  warmup?: WarmupItem[]
   last_used_at: string | null
 }
 
@@ -68,7 +73,7 @@ export interface GymOverview {
   week: { days: boolean[]; today: number; done: number; goal: number | null }
   tonnage: { thisWeek: number; lastWeek: number }
   recentPrs: PrEvent[]
-  planToday: { planName: string; name: string; notes: string; exercises: PlannedExercise[] } | null
+  planToday: { planName: string; name: string; notes: string; warmup?: WarmupItem[]; exercises: PlannedExercise[] } | null
 }
 
 export const fmtKg = (kg: number) => (Number.isInteger(kg) ? String(kg) : kg.toFixed(1).replace('.', ','))

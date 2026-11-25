@@ -1,6 +1,7 @@
 import { router } from 'expo-router'
 import { useCallback } from 'react'
 import { useApi } from '@/lib/api'
+import type { WarmupItem } from '@/lib/warmup'
 import { useWorkout, type ExerciseEntry } from '@/lib/workout-store'
 
 type NewExercise = Omit<ExerciseEntry, 'id' | 'sets' | 'previous'>
@@ -22,10 +23,10 @@ export function usePrevious() {
 /** Starts a workout with previous results attached and opens the live workout screen. */
 export function useStartWorkout() {
   const fetchPrevious = usePrevious()
-  return useCallback(async (name: string, exercises: NewExercise[], templateId?: string, trainerNote?: string) => {
+  return useCallback(async (name: string, exercises: NewExercise[], templateId?: string, trainerNote?: string, warmup?: WarmupItem[]) => {
     if (useWorkout.getState().workout) { router.push('/workout'); return }
     const previous = await fetchPrevious(Array.from(new Set(exercises.map(e => e.exerciseId))))
-    useWorkout.getState().start(name, exercises.map(e => ({ ...e, previous: previous[e.exerciseId] })), templateId, trainerNote)
+    useWorkout.getState().start(name, exercises.map(e => ({ ...e, previous: previous[e.exerciseId] })), templateId, trainerNote, warmup)
     router.push('/workout')
   }, [fetchPrevious])
 }

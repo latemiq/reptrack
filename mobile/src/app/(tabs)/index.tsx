@@ -97,13 +97,13 @@ export default function GymHome() {
     ? {
         kicker: 'Dziś · od trenera', name: plan.name, note: plan.notes,
         items: plan.exercises.map(e => `${e.name} ${e.sets}×${repsLabel(e.repsMin ?? e.repsMax ?? 0, e.repsMax)}`),
-        go: () => run(() => start(plan.name, plan.exercises.map(fromPlan), undefined, plan.notes)),
+        go: () => run(() => start(plan.name, plan.exercises.map(fromPlan), undefined, plan.notes, plan.warmup)),
       }
     : suggested
       ? {
           kicker: suggested.last_used_at ? `Proponowany · ostatnio ${relativeDay(suggested.last_used_at)}` : 'Proponowany', name: suggested.name, note: '',
           items: suggested.exercises.map(e => `${e.name} ${e.targetSets}×${repsLabel(e.targetReps, e.targetRepsMax)}`),
-          go: () => run(() => start(suggested.name, suggested.exercises, suggested.id)),
+          go: () => run(() => start(suggested.name, suggested.exercises, suggested.id, undefined, suggested.warmup)),
         }
       : null
 
@@ -173,7 +173,7 @@ export default function GymHome() {
         </View>
         <Card style={{ paddingVertical: 0 }}>
           {templates?.map((t, i) => (
-            <Pressable key={t.id} disabled={starting} onPress={() => run(() => start(t.name, t.exercises, t.id))}
+            <Pressable key={t.id} disabled={starting} onPress={() => run(() => start(t.name, t.exercises, t.id, undefined, t.warmup))}
               onLongPress={() => deleteTemplate(t)} accessibilityHint="Przytrzymaj, żeby usunąć"
               style={({ pressed }) => [s.row, i > 0 && s.rowBorder, pressed && { opacity: 0.6 }]}>
               <Text style={s.rowTitle} numberOfLines={1}>{t.name}</Text>

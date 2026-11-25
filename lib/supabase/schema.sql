@@ -104,10 +104,14 @@ create table if not exists workout_templates (
   user_id text not null,
   name text not null,
   exercises jsonb not null default '[]',
+  -- Rozgrzewka (cardio i ćwiczenia na dogrzanie) — nie liczy się do statystyk.
+  warmup jsonb not null default '[]',
   last_used_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table workout_templates add column if not exists warmup jsonb not null default '[]';
 
 create index if not exists workout_templates_user_idx on workout_templates (user_id, created_at);
 
@@ -129,8 +133,13 @@ create table if not exists workouts (
   finished_at timestamptz,
   duration_seconds int,
   total_tonnage decimal default 0,
+  -- Rozgrzewka: [{ kind: 'cardio', machine, minutes, distanceKm, level, done } | { kind: 'exercise', name, sets, reps, done }].
+  -- Trzymana osobno od workout_sets, żeby nie wchodziła do serii, tonażu, rekordów i mapy mięśni.
+  warmup jsonb not null default '[]',
   created_at timestamptz default now()
 );
+
+alter table workouts add column if not exists warmup jsonb not null default '[]';
 
 create index if not exists workouts_user_started_at_idx
   on workouts (user_id, started_at desc);
@@ -344,8 +353,11 @@ create table if not exists planned_sessions (
   position int not null,
   day_of_week int not null check (day_of_week between 1 and 7), -- 1 = poniedziałek
   name text not null,
-  notes text
+  notes text,
+  warmup jsonb not null default '[]'
 );
+
+alter table planned_sessions add column if not exists warmup jsonb not null default '[]';
 
 create index if not exists planned_sessions_micro_idx on planned_sessions (microcycle_id, day_of_week, position);
 
@@ -421,9 +433,9 @@ begin
 
       for s in select value as v, ordinality as pos
                from jsonb_array_elements(coalesce(w.v->'sessions', '[]')) with ordinality loop
-        insert into planned_sessions (id, microcycle_id, position, day_of_week, name, notes)
+        insert into planned_sessions (id, microcycle_id, position, day_of_week, name, notes, warmup)
         values ((s.v->>'id')::uuid, (w.v->>'id')::uuid, s.pos, (s.v->>'dayOfWeek')::int,
-                s.v->>'name', nullif(s.v->>'notes', ''));
+                s.v->>'name', nullif(s.v->>'notes', ''), coalesce(s.v->'warmup', '[]'::jsonb));
 
         insert into planned_exercises (session_id, position, exercise_id, exercise_name, sets, reps_min, reps_max,
                                        weight_kg, percent_1rm, rpe, rest_seconds, notes, superset)

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
 import { sanitizeTemplateExercises } from '@/lib/templates'
+import { sanitizeWarmup } from '@/lib/warmup'
 
-const COLUMNS = 'id, name, exercises, last_used_at, created_at'
+const COLUMNS = 'id, name, exercises, warmup, last_used_at, created_at'
 
 export async function GET() {
   const userId = await getUserId()
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin()
     .from('workout_templates')
-    .insert({ user_id: userId, name, exercises })
+    .insert({ user_id: userId, name, exercises, warmup: sanitizeWarmup(body?.warmup, false) })
     .select(COLUMNS)
     .single()
 

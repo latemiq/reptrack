@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { clientId: st
 
   const { data, error } = await supabaseAdmin()
     .from('workouts')
-    .select('id, template_id, name, notes, started_at, finished_at, duration_seconds, total_tonnage, workout_sets(exercise_id, exercise_name, exercise_position, set_number, reps, weight_kg, rpe)')
+    .select('id, template_id, name, notes, started_at, finished_at, duration_seconds, total_tonnage, warmup, workout_sets(exercise_id, exercise_name, exercise_position, set_number, reps, weight_kg, rpe)')
     .eq('user_id', params.clientId)
     .not('finished_at', 'is', null)
     .order('started_at', { ascending: false })
