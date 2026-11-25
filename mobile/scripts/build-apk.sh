@@ -12,7 +12,7 @@
 #   - Gradle daemon + build cache, and only the phone's CPU architecture.
 #
 # Run from the repo:  bash mobile/scripts/build-apk.sh
-# Options (env):  ARCHS=arm64-v8a,x86_64 (add x86_64 for the emulator)   CLEAN=1 (full rebuild)   INSTALL=0
+# Options (env):  ARCHS=arm64-v8a,x86_64 (add x86_64 for the emulator)   CLEAN=1 (full rebuild)   INSTALL=0   DEBUG_SIGN=1
 # Result: C:\rt\android\app\build\outputs\apk\release\app-release.apk
 set -euo pipefail
 
@@ -51,6 +51,12 @@ if [ ! -d android ] || [ "$(cat .native-hash 2>/dev/null)" != "$NATIVE_HASH" ]; 
   echo "$NATIVE_HASH" > .native-hash
 else
   echo "→ Projekt Androida bez zmian"
+fi
+
+# Release signing key (see plugins/with-release-signing.js). DEBUG_SIGN=1 builds without it, for local tests only.
+SIGNING="${RT_SIGNING_PROPERTIES:-$HOME/.reptrack/signing.properties}"
+if [ ! -f "$SIGNING" ] && [ "${DEBUG_SIGN:-0}" != 1 ]; then
+  echo "Brak klucza podpisu ($SIGNING). Ustaw DEBUG_SIGN=1 tylko do testów lokalnych."; exit 1
 fi
 
 echo "→ Buduję APK ($ARCHS)"

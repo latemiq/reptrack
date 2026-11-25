@@ -3,6 +3,7 @@ import { Marquee } from '@/components/landing/Marquee'
 import { PinnedFeatures } from '@/components/landing/PinnedFeatures'
 import { Stats } from '@/components/landing/Stats'
 import { CTA } from '@/components/landing/CTA'
+import { AndroidDownload } from '@/components/landing/AndroidDownload'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AUTH_BYPASS } from '@/lib/auth-bypass'
@@ -22,6 +23,7 @@ export default function LandingPage() {
         <nav className="hidden md:flex items-center gap-8">
           {[
             { label: 'Funkcje', href: '#features' },
+            { label: 'Aplikacja', href: '#android' },
             { label: 'Pulpit', href: '/dashboard' },
             { label: 'Asystent AI', href: '/coach' },
           ].map((item) => (
@@ -42,6 +44,7 @@ export default function LandingPage() {
         <Marquee />
         <PinnedFeatures />
         <Stats />
+        <AndroidDownload />
         <CTA />
       </main>
     </>
