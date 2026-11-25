@@ -8,14 +8,21 @@ const PL = translationsPl as Record<string, { name: string; instructions: string
 
 export const revalidate = 3600
 
-export async function GET() {
+const FULL = 'id, catalog_id, name, source, level, force, mechanic, equipment, primary_muscles, secondary_muscles, instructions, category, images'
+// For pickers (the mobile workout screen): names and muscles only, a fraction of the size.
+const LITE = 'id, catalog_id, name, source, primary_muscles, secondary_muscles, category'
+
+/** ?lite=1 returns only what an exercise picker needs. */
+export async function GET(req: Request) {
   const userId = await getUserId()
   if (!userId) return unauthorized()
   const supabase = supabaseAdmin()
+  const lite = new URL(req.url).searchParams.get('lite') === '1'
 
   const { data, error } = await supabase
     .from('exercises')
-    .select('id, catalog_id, name, source, level, force, mechanic, equipment, primary_muscles, secondary_muscles, instructions, category, images')
+    // Column list chosen at runtime; the typed select parser only accepts literals.
+    .select((lite ? LITE : FULL) as '*')
     .or(`source.eq.catalog,user_id.eq.${userId}`)
     .order('name', { ascending: true })
 
@@ -27,7 +34,8 @@ export async function GET() {
   // Show catalog exercises in Polish; keep the English name for search (name_en).
   const exercises = (data ?? []).map(e => {
     const pl = e.catalog_id ? PL[e.catalog_id] : undefined
-    return pl ? { ...e, name: pl.name, name_en: e.name, instructions: pl.instructions.length ? pl.instructions : e.instructions } : e
+    if (!pl) return e
+    return lite ? { ...e, name: pl.name, name_en: e.name } : { ...e, name: pl.name, name_en: e.name, instructions: pl.instructions.length ? pl.instructions : (e as { instructions?: string[] }).instructions }
   }).sort((a, b) => a.name.localeCompare(b.name, 'pl'))
 
   return NextResponse.json({ exercises })

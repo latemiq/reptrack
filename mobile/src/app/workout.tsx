@@ -2,12 +2,13 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import * as Haptics from 'expo-haptics'
 import { useKeepAwake } from 'expo-keep-awake'
 import { router } from 'expo-router'
-import { useEffect, useMemo, useState } from 'react'
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { ExercisePicker } from '@/components/ExercisePicker'
 import { Btn, ErrorBox } from '@/components/ui'
 import { useApi } from '@/lib/api'
-import { fmtKg, fmtTonnes, POPULAR, supersetLabels, supersetNext } from '@/lib/gym'
+import { fmtKg, fmtTonnes, supersetLabels, supersetNext } from '@/lib/gym'
 import { cancelRestEnd, scheduleRestEnd } from '@/lib/rest-alert'
 import { usePrevious } from '@/lib/start'
 import { C, R } from '@/lib/theme'
@@ -188,33 +189,6 @@ function RestBar() {
   )
 }
 
-function AddExercise({ onPick, onCancel }: { onPick: (id: string, name: string) => void; onCancel: () => void }) {
-  const [q, setQ] = useState('')
-  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l')
-  const results = useMemo(() => {
-    const n = norm(q.trim())
-    return n ? POPULAR.filter(p => norm(`${p.name} ${p.muscle}`).includes(n)) : POPULAR.slice(0, 8)
-  }, [q])
-  return (
-    <View style={st.card}>
-      <TextInput value={q} onChangeText={setQ} autoFocus placeholder="Szukaj (np. przysiad, plecy) lub wpisz nazwę"
-        placeholderTextColor="#555" style={[st.num, { textAlign: 'left', paddingHorizontal: 12, fontSize: 15 }]} />
-      {results.map(r => (
-        <Pressable key={r.id} onPress={() => onPick(r.id, r.name)} style={st.pickRow}>
-          <Text style={{ color: C.text, flex: 1 }}>{r.name}</Text>
-          <Text style={{ color: C.faint, fontSize: 11 }}>{r.muscle.toUpperCase()}</Text>
-        </Pressable>
-      ))}
-      {!!q.trim() && (
-        <Pressable onPress={() => onPick(`custom:${q.trim().toLowerCase().replace(/\s+/g, '-')}`, q.trim())} style={st.pickRow}>
-          <Text style={{ color: C.lime }}>+ Dodaj „{q.trim()}” jako własne ćwiczenie</Text>
-        </Pressable>
-      )}
-      <Pressable onPress={onCancel} style={{ paddingVertical: 10 }}><Text style={{ color: C.muted, textAlign: 'center' }}>Anuluj</Text></Pressable>
-    </View>
-  )
-}
-
 /** Live workout. Everything is stored on the phone until "Zakończ" sends it to the server. */
 export default function WorkoutScreen() {
   useKeepAwake()
@@ -225,6 +199,7 @@ export default function WorkoutScreen() {
   const [elapsed, setElapsed] = useState(0)
   const [openId, setOpenId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
+  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -262,10 +237,16 @@ export default function WorkoutScreen() {
     setRest({ endsAt: Date.now() + ex.restSeconds * 1000, total: ex.restSeconds, notificationId })
   }
 
-  const pick = async (exerciseId: string, name: string) => {
+  const pick = async (exerciseId: string, name: string, superset: boolean) => {
     setPicking(false)
     const previous = (await fetchPrevious([exerciseId]))[exerciseId]
-    const id = addExercise({ exerciseId, name, targetSets: previous?.length || 3, targetReps: previous?.[0]?.reps ?? 8, targetWeight: null, restSeconds: 120, previous })
+    // In a superset both exercises run the same number of rounds.
+    const partner = superset ? workout.exercises[workout.exercises.length - 1] : undefined
+    const id = addExercise({
+      exerciseId, name, previous, superset: !!partner,
+      targetSets: partner?.sets.length ?? (previous?.length || 3), targetReps: previous?.[0]?.reps ?? 8, targetWeight: null,
+      restSeconds: partner?.restSeconds ?? 120,
+    })
     setOpenId(id)
   }
 
@@ -323,8 +304,9 @@ export default function WorkoutScreen() {
       </View>
       <View style={st.progress}><View style={[st.progressFill, { width: `${p.pct}%` }]} /></View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      {/* Android draws edge-to-edge, so the window no longer shrinks for the keyboard: pad on both systems. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           <ErrorBox message={error} />
           {!!workout.trainerNote && (
             <View style={[st.note, { marginTop: 0 }]}>
@@ -339,7 +321,13 @@ export default function WorkoutScreen() {
             <ExerciseCard key={ex.id} ex={ex} index={i} label={labels[i]} expanded={ex.id === expanded} onExpand={() => setOpenId(ex.id)} onSetDone={onSetDone} />
           ))}
           {picking
-            ? <AddExercise onPick={pick} onCancel={() => setPicking(false)} />
+            ? (
+              // The picker sits under the workout's exercises; bring its search field to the top so the
+              // results stay above the keyboard.
+              <View onLayout={e => { const y = e.nativeEvent.layout.y; setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, y - 8), animated: true }), 50) }}>
+                <ExercisePicker partner={workout.exercises[workout.exercises.length - 1]?.name ?? null} onPick={pick} onCancel={() => setPicking(false)} />
+              </View>
+            )
             : (
               <Pressable onPress={() => setPicking(true)} style={st.addBtn}>
                 <Text style={{ color: C.textDim, fontSize: 14 }}>+ Dodaj ćwiczenie</Text>
@@ -375,7 +363,6 @@ const st = StyleSheet.create({
   check: { width: 44, height: 44, borderRadius: R.sm, borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
   checkDone: { backgroundColor: C.lime, borderColor: C.lime },
   addBtn: { borderWidth: 1, borderStyle: 'dashed', borderColor: '#2a2a2a', borderRadius: R.lg, paddingVertical: 14, alignItems: 'center' },
-  pickRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#1a1a1a' },
   rest: { backgroundColor: '#151515', borderTopWidth: 1, borderTopColor: '#262626', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12 },
   restTrack: { height: 3, backgroundColor: '#262626', borderRadius: 3, marginTop: 8, overflow: 'hidden' },
   restFill: { height: '100%', backgroundColor: C.orange },
