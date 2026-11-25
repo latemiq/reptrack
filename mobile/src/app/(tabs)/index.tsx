@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import { AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MuscleMap, type MuscleWeek } from '@/components/MuscleMap'
 import { Btn, Card, ErrorBox, Kicker, Loading } from '@/components/ui'
@@ -69,6 +69,23 @@ export default function GymHome() {
     if (!templates?.length) return null
     return [...templates].sort((a, b) => (a.last_used_at ?? '').localeCompare(b.last_used_at ?? ''))[0]
   }, [templates])
+
+  const deleteTemplate = (t: WorkoutTemplate) => {
+    Alert.alert(`Usunąć szablon „${t.name}”?`, 'Treningi zrobione z tego szablonu zostaną w historii.', [
+      { text: 'Anuluj', style: 'cancel' },
+      {
+        text: 'Usuń', style: 'destructive', onPress: async () => {
+          setTemplates(ts => ts?.filter(x => x.id !== t.id) ?? ts)
+          try {
+            await api(`/api/gym/templates/${t.id}`, { method: 'DELETE' })
+          } catch (e) {
+            setError(e instanceof Error ? e.message : 'Nie udało się usunąć szablonu.')
+            load()
+          }
+        },
+      },
+    ])
+  }
 
   const run = async (fn: () => Promise<void>) => {
     setStarting(true)
@@ -157,10 +174,14 @@ export default function GymHome() {
         <Card style={{ paddingVertical: 0 }}>
           {templates?.map((t, i) => (
             <Pressable key={t.id} disabled={starting} onPress={() => run(() => start(t.name, t.exercises, t.id))}
+              onLongPress={() => deleteTemplate(t)} accessibilityHint="Przytrzymaj, żeby usunąć"
               style={({ pressed }) => [s.row, i > 0 && s.rowBorder, pressed && { opacity: 0.6 }]}>
               <Text style={s.rowTitle} numberOfLines={1}>{t.name}</Text>
               <Text style={s.rowMeta}>{t.exercises.length} ćw · {t.last_used_at ? relativeDay(t.last_used_at) : 'nowy'}</Text>
-              <Ionicons name="chevron-forward" size={16} color={C.faint} />
+              <Pressable onPress={() => deleteTemplate(t)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Usuń szablon ${t.name}`}
+                style={({ pressed }) => [{ padding: 4 }, pressed && { opacity: 0.5 }]}>
+                <Ionicons name="trash-outline" size={17} color={C.faint} />
+              </Pressable>
             </Pressable>
           ))}
           <Pressable disabled={starting} onPress={() => run(() => start(`Trening ${new Date().toLocaleDateString('pl-PL')}`, []))}

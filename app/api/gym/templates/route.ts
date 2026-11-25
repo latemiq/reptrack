@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getUserId, unauthorized } from '@/lib/api-auth'
-import { DEFAULT_TEMPLATES, sanitizeTemplateExercises } from '@/lib/templates'
+import { sanitizeTemplateExercises } from '@/lib/templates'
 
 const COLUMNS = 'id, name, exercises, last_used_at, created_at'
 
@@ -21,17 +21,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Błąd bazy danych. Spróbuj ponownie.' }, { status: 500 })
   }
 
-  // First visit: seed a starter PPL split so the gym screen isn't empty.
-  if ((data ?? []).length === 0) {
-    const { data: seeded, error: seedErr } = await supabase
-      .from('workout_templates')
-      .insert(DEFAULT_TEMPLATES.map(t => ({ ...t, user_id: userId })))
-      .select(COLUMNS)
-    if (seedErr) console.error('Templates seed error:', seedErr)
-    return NextResponse.json({ templates: seeded ?? [] })
-  }
-
-  return NextResponse.json({ templates: data })
+  // Starter templates are added once, at sign-up (/api/onboarding), so deleted ones stay deleted.
+  return NextResponse.json({ templates: data ?? [] })
 }
 
 export async function POST(req: NextRequest) {

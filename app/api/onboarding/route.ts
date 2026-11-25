@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { ensureProfile, getUserId, unauthorized } from '@/lib/api-auth'
+import { DEFAULT_TEMPLATES } from '@/lib/templates'
 
 const positiveOrNull = (v: unknown) => {
   const n = Number(v)
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
 
   const supabase = supabaseAdmin()
   await ensureProfile(userId)
+  const { data: before } = await supabase.from('profiles').select('onboarded_at').eq('id', userId).maybeSingle()
 
   const now = new Date().toISOString()
   const { error } = await supabase
@@ -44,6 +46,16 @@ export async function POST(req: Request) {
   if (error) {
     console.error('Onboarding profile error:', error)
     return NextResponse.json({ error: 'Zapis profilu nie powiódł się' }, { status: 500 })
+  }
+
+  // A starter push/pull/legs split, once, so a new account's gym screen isn't empty.
+  // Only on the first onboarding: templates the user deletes later must not come back.
+  if (!before?.onboarded_at) {
+    const { count } = await supabase.from('workout_templates').select('id', { count: 'exact', head: true }).eq('user_id', userId)
+    if (!count) {
+      const { error: seedErr } = await supabase.from('workout_templates').insert(DEFAULT_TEMPLATES.map(t => ({ ...t, user_id: userId })))
+      if (seedErr) console.error('Onboarding templates error:', seedErr)
+    }
   }
 
   if (weightKg) {
