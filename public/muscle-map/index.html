@@ -148,19 +148,32 @@ new GLTFLoader().setDRACOLoader(draco).load('model.glb', gltf => {
   send({ type: 'error' })
 })
 
-// Rotation: drag horizontally; spins slowly until the first touch.
-let rotY = 0.35, target = null, spin = true, drag = false, lastX = 0, moved = 0
+// Rotation: spins on its own all the time. A sideways drag turns it by hand; it starts spinning again
+// a moment after the finger lifts. A vertical drag is left to the page, so it scrolls past the model.
+const RESUME_MS = 2500
+let rotY = 0.35, target = null, spin = true, resumeAt = 0
+let drag = false, axis = null, startX = 0, startY = 0, lastX = 0, moved = 0
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2()
-stage.addEventListener('pointerdown', e => { drag = true; lastX = e.clientX; moved = 0 })
+const pauseSpin = ms => { spin = false; resumeAt = performance.now() + ms }
+stage.addEventListener('pointerdown', e => { drag = true; axis = null; startX = lastX = e.clientX; startY = e.clientY; moved = 0 })
 stage.addEventListener('pointermove', e => {
   if (!drag) return
+  if (!axis) {
+    const ax = Math.abs(e.clientX - startX), ay = Math.abs(e.clientY - startY)
+    if (Math.max(ax, ay) < 6) return
+    axis = ax > ay ? 'x' : 'y'
+  }
+  if (axis !== 'x') return
   const dx = e.clientX - lastX; lastX = e.clientX; moved += Math.abs(dx)
-  if (moved > 4) { spin = false; target = null; rotY += dx * 0.012 }
+  target = null
+  pauseSpin(RESUME_MS)
+  rotY += dx * 0.012
 })
 const end = e => {
   if (!drag) return
   drag = false
-  if (moved > 6 || e.type === 'pointercancel') return
+  if (axis === 'x') pauseSpin(RESUME_MS)
+  if (axis || moved > 6 || e.type === 'pointercancel') return
   const r = stage.getBoundingClientRect()
   ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1)
   ray.setFromCamera(ndc, cam)
@@ -173,15 +186,16 @@ const end = e => {
 stage.addEventListener('pointerup', end)
 stage.addEventListener('pointercancel', end)
 
+// "Przód" / "Tył": turn to that side and hold it for a while before spinning again.
 const turnTo = side => {
-  spin = false
+  pauseSpin(6000)
   const base = Math.round(rotY / (2 * Math.PI)) * 2 * Math.PI
   target = side === 'back' ? Math.round((rotY - Math.PI) / (2 * Math.PI)) * 2 * Math.PI + Math.PI : base
 }
 
 window.setMuscles = data => { sets = data || {}; paint() }
 window.selectGroup = g => { selected = g || null; paint() }
-window.setView = v => { if (v === 'spin') { spin = true; target = null } else turnTo(v) }
+window.setView = v => { if (v === 'spin') { spin = true; target = null; resumeAt = 0 } else turnTo(v) }
 window.addEventListener('message', e => {
   try {
     const m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
@@ -194,6 +208,7 @@ window.addEventListener('message', e => {
 ;(function loop() {
   if (spin) rotY += 0.005
   else if (target !== null) { rotY += (target - rotY) * 0.12; if (Math.abs(target - rotY) < 0.001) target = null }
+  else if (!drag && performance.now() >= resumeAt) spin = true
   pivot.rotation.y = rotY
   renderer.render(scene, cam)
   requestAnimationFrame(loop)

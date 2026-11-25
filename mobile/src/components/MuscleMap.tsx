@@ -105,7 +105,9 @@ export function MuscleMap({ data }: { data: MuscleWeek | null }) {
               style={{ backgroundColor: C.card }}
               containerStyle={{ backgroundColor: C.card }}
               scrollEnabled={false}
-              nestedScrollEnabled
+              // No nested scrolling: a vertical swipe over the model scrolls the home screen
+              // (the viewer only takes sideways drags, to turn the body).
+              nestedScrollEnabled={false}
               overScrollMode="never"
               setBuiltInZoomControls={false}
               javaScriptEnabled
